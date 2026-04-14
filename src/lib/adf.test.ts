@@ -58,9 +58,9 @@ describe("adf builders", () => {
     });
     expect(adf.type).toBe("doc");
     expect(adf.version).toBe(1);
-    const headings = adf.content
+    const headings = (adf.content ?? [])
       .filter((n) => n.type === "heading")
-      .map((n: any) => n.content[0].text);
+      .map((n: any) => n.content?.[0]?.text);
     expect(headings).toEqual([
       "Description", "Reporter", "Page", "Rendering",
       "Datasource fields", "Browser"
