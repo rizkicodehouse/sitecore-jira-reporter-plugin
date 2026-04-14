@@ -31,6 +31,17 @@ class TestFormData {
     this.entries.set(name, [{ value, filename }]);
   }
 }
-globalThis.FormData = TestFormData as unknown as typeof FormData;
+// Only replace FormData when running in a browser-like environment
+// (jsdom) where the native FormData rejects Node's Blob. In the Node
+// environment, keep the native (undici) FormData so that
+// `new Request(..., { body: fd })` can serialize multipart bodies and
+// `req.formData()` can round-trip the result.
+const isJsdom =
+  typeof window !== "undefined" &&
+  typeof (window as unknown as { document?: unknown }).document !==
+    "undefined";
+if (isJsdom) {
+  globalThis.FormData = TestFormData as unknown as typeof FormData;
+}
 
 afterEach(() => { cleanup(); });
