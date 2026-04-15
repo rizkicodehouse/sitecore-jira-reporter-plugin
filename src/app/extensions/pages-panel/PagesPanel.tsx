@@ -52,6 +52,47 @@ export const PagesPanel: FC<PagesPanelProps> = (
       return;
     }
     (async () => {
+      const isEmbedded =
+        typeof window !== "undefined" &&
+        window.parent !== window;
+      if (!isEmbedded) {
+        const mockCtx = {
+          page: {
+            id: "dev-page-1",
+            path: "/home",
+            title: "Dev: Home",
+            language: "en"
+          },
+          site: { name: "dev-site" },
+          rendering: {
+            instanceId: "dev-rendering-1",
+            renderingId: "dev-r-1",
+            name: "Hero Banner",
+            templateName: "Hero"
+          }
+        };
+        const devStub = {
+          query: async () => ({ data: mockCtx }),
+          subscribe: (
+            _: string,
+            handler: (e: unknown) => void
+          ) => {
+            setTimeout(
+              () =>
+                handler({
+                  type: "page-layout",
+                  renderingInstanceId: "dev-rendering-1"
+                }),
+              100
+            );
+            return () => {};
+          }
+        };
+        initSitecoreContext(devStub);
+        setSdkToken("stub-valid-dev");
+        setSdkReady(true);
+        return;
+      }
       const mod = await import(
         "@sitecore-marketplace-sdk/client"
       );
