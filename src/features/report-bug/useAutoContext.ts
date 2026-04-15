@@ -23,55 +23,48 @@ export function useAutoContext(
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      try {
-        const [pagesCtx, reporter, datasource] =
-          await Promise.all([
-            getPagesContext(),
-            fetchMe(opts.sdkToken),
-            opts.datasourceItemId
-              ? fetchDatasource(
-                  opts.sdkToken,
-                  opts.datasourceItemId,
-                  "en"
-                )
-              : Promise.resolve(null)
-          ]);
-        if (cancelled) return;
-        const ctx: ReportContext = {
-          page: {
-            id: pagesCtx.page.id,
-            title: pagesCtx.page.title,
-            url: pagesCtx.page.path,
-            language: pagesCtx.page.language,
-            site: pagesCtx.site.name
-          },
-          rendering: pagesCtx.rendering ?? null,
-          datasource: datasource
-            ? { itemId: opts.datasourceItemId!,
-                templateName: "",
-                fields: datasource }
-            : null,
-          reporter,
-          browser: {
-            userAgent:
-              typeof navigator !== "undefined"
-                ? navigator.userAgent : "",
-            viewport:
-              typeof window !== "undefined"
-                ? `${window.innerWidth}x${window.innerHeight}`
-                : "",
-            timestamp: new Date().toISOString()
-          }
-        };
-        setState({ loading: false, context: ctx, error: null });
-      } catch (e) {
-        if (cancelled) return;
-        setState({
-          loading: false,
-          context: null,
-          error: (e as Error).message
-        });
-      }
+      const [pagesCtx, reporter, datasource] =
+        await Promise.all([
+          getPagesContext().catch(() => null),
+          fetchMe(opts.sdkToken),
+          opts.datasourceItemId
+            ? fetchDatasource(
+                opts.sdkToken,
+                opts.datasourceItemId,
+                "en"
+              )
+            : Promise.resolve(null)
+        ]);
+      if (cancelled) return;
+      const ctx: ReportContext = {
+        page: pagesCtx
+          ? {
+              id: pagesCtx.page.id,
+              title: pagesCtx.page.title,
+              url: pagesCtx.page.path,
+              language: pagesCtx.page.language,
+              site: pagesCtx.site.name
+            }
+          : null,
+        rendering: pagesCtx?.rendering ?? null,
+        datasource: datasource
+          ? { itemId: opts.datasourceItemId!,
+              templateName: "",
+              fields: datasource }
+          : null,
+        reporter,
+        browser: {
+          userAgent:
+            typeof navigator !== "undefined"
+              ? navigator.userAgent : "",
+          viewport:
+            typeof window !== "undefined"
+              ? `${window.innerWidth}x${window.innerHeight}`
+              : "",
+          timestamp: new Date().toISOString()
+        }
+      };
+      setState({ loading: false, context: ctx, error: null });
     })();
     return () => { cancelled = true; };
   }, [opts.sdkToken, opts.datasourceItemId]);

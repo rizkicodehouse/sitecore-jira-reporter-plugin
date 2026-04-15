@@ -134,12 +134,23 @@ export const PagesPanel: FC<PagesPanelProps> = (
 
   useEffect(() => {
     if (!sdkReady) return;
-    const off = subscribeToLayoutChanges(async (evt) => {
-      const ctx = await getPagesContext();
-      setHasSelection(Boolean(ctx.rendering));
-      setDsId(evt.renderingInstanceId);
-    });
-    return () => off();
+    let off: (() => void) | null = null;
+    try {
+      off = subscribeToLayoutChanges(async (evt) => {
+        try {
+          const ctx = await getPagesContext();
+          setHasSelection(Boolean(ctx.rendering));
+          setDsId(evt.renderingInstanceId);
+        } catch {
+          setHasSelection(false);
+        }
+      });
+    } catch {
+      setHasSelection(false);
+    }
+    return () => {
+      if (off) off();
+    };
   }, [sdkReady]);
 
   const autoCtx = useAutoContext({
@@ -190,6 +201,13 @@ export const PagesPanel: FC<PagesPanelProps> = (
         <SettingsGear
           onClick={() => setSettingsOpen((x) => !x)} />
       </div>
+      {!hasSelection && (
+        <p className="text-sm text-gray-600 mt-2">
+          Open a page in Sitecore Pages and select a
+          rendering to report a bug on it. Use the gear
+          icon to configure the target JIRA project.
+        </p>
+      )}
       {settingsOpen && (
         <SettingsView
           load={loadSettings}
