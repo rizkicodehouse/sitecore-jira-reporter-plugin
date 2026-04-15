@@ -44,7 +44,7 @@ KV (optional — falls back to in-memory if unset):
 2. After production deploy, register the plugin in Sitecore
    Cloud Portal → Developer Studio → Register App →
    Pages Context Panel, URL =
-   `https://<vercel-deploy>/extensions/pages-panel`.
+   `https://<vercel-deploy>/pages-panel`.
 
 ## Architecture
 

@@ -18,7 +18,7 @@ test("upload fallback when capture declined", async (
       body: JSON.stringify([{ id: "att-9" }])
     }));
 
-  await page.goto("/extensions/pages-panel");
+  await page.goto("/pages-panel");
   await page.evaluate(() => {
     window.postMessage({
       topic: "pages.layout",

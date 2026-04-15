@@ -1,4 +1,4 @@
-import { PagesPanel } from "../pages-panel/PagesPanel";
+import { PagesPanel } from "@/app/pages-panel/PagesPanel";
 
 export default function FullScreen() {
   return (

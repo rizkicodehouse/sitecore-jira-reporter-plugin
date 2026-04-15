@@ -20,7 +20,7 @@ test("happy path — submit with capture", async ({ page }) => {
     })
   );
 
-  await page.goto("/extensions/pages-panel");
+  await page.goto("/pages-panel");
   await page.evaluate(() => {
     window.postMessage({
       topic: "pages.layout",
