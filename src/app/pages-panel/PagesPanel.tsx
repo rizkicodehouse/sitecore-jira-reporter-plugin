@@ -155,9 +155,11 @@ export const PagesPanel: FC<PagesPanelProps> = (
         refreshSelection(evt);
       });
     } catch {
-      /* subscription unsupported — initial read covers it */
+      /* subscription unsupported — poll instead */
     }
+    const poll = setInterval(() => refreshSelection(), 1500);
     return () => {
+      clearInterval(poll);
       if (off) off();
     };
   }, [sdkReady]);
