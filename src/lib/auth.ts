@@ -17,8 +17,15 @@ export async function verifySdkSession(
       ok: false, status: 401, reason: "missing-token"
     };
   }
-  if (process.env.NODE_ENV !== "production" &&
-      token.startsWith("stub-valid")) {
+  // Stub tokens are normally only accepted in non-prod.
+  // ALLOW_STUB_TOKEN=1 is an INTERIM escape hatch for
+  // smoke-testing deployed previews before real Auth0
+  // verification lands. Never enable on Production.
+  // See docs/TODO-auth0-integration.md.
+  const stubAllowed =
+    process.env.NODE_ENV !== "production" ||
+    process.env.ALLOW_STUB_TOKEN === "1";
+  if (stubAllowed && token.startsWith("stub-valid")) {
     const claimedEmail = req.headers.get("X-User-Email");
     const claimedName = req.headers.get("X-User-Name");
     return {
