@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Dev host</title></head>
+<body>
+  <h1>Dev host shell</h1>
+  <iframe id="plugin"
+    src="http://localhost:3002/extensions/pages-panel"
+    style="width: 420px; height: 600px; border: 1px solid #ccc;">
+  </iframe>
+  <script>
+    window.addEventListener("message", (e) => {
+      console.log("host received", e.data);
+    });
+    setTimeout(() => {
+      const frame = document.getElementById("plugin");
+      frame.contentWindow.postMessage({
+        topic: "pages.layout",
+        payload: {
+          type: "page-layout",
+          renderingInstanceId: "abc"
+        }
+      }, "*");
+    }, 500);
+  </script>
+</body>
+</html>
