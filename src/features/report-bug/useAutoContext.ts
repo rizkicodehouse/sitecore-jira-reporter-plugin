@@ -22,6 +22,10 @@ export function useAutoContext(
 
   useEffect(() => {
     let cancelled = false;
+    if (!opts.sdkToken) {
+      setState({ loading: true, context: null, error: null });
+      return () => { cancelled = true; };
+    }
     (async () => {
       const [pagesCtx, reporter, datasource] =
         await Promise.all([

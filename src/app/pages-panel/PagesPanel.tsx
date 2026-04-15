@@ -114,11 +114,11 @@ export const PagesPanel: FC<PagesPanelProps> = (
           return { data: r.data };
         },
         subscribe: (
-          topic: string,
+          _topic: string,
           handler: (e: unknown) => void
         ) =>
           real.subscribe(
-            topic as "pages.content.layoutUpdated",
+            "pages.content.layoutUpdated",
             {
               onData: (d) => handler(d)
             }
@@ -135,18 +135,27 @@ export const PagesPanel: FC<PagesPanelProps> = (
   useEffect(() => {
     if (!sdkReady) return;
     let off: (() => void) | null = null;
+    const refreshSelection = async (
+      evt?: { renderingInstanceId?: string }
+    ) => {
+      try {
+        const ctx = await getPagesContext();
+        setHasSelection(Boolean(ctx.rendering));
+        setDsId(
+          evt?.renderingInstanceId ??
+            ctx.rendering?.instanceId
+        );
+      } catch {
+        setHasSelection(false);
+      }
+    };
+    refreshSelection();
     try {
-      off = subscribeToLayoutChanges(async (evt) => {
-        try {
-          const ctx = await getPagesContext();
-          setHasSelection(Boolean(ctx.rendering));
-          setDsId(evt.renderingInstanceId);
-        } catch {
-          setHasSelection(false);
-        }
+      off = subscribeToLayoutChanges((evt) => {
+        refreshSelection(evt);
       });
     } catch {
-      setHasSelection(false);
+      /* subscription unsupported — initial read covers it */
     }
     return () => {
       if (off) off();
