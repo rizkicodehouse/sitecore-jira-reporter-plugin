@@ -52,16 +52,38 @@ export const PagesPanel: FC<PagesPanelProps> = (
       return;
     }
     (async () => {
-      const mod = (await import(
+      const mod = await import(
         "@sitecore-marketplace-sdk/client"
-      )) as unknown as {
-        createClient: () => Promise<{
-          getSessionToken: () => Promise<string>;
-        }>;
+      );
+      const real = await mod.ClientSDK.init({
+        target: window.parent,
+        ...(process.env
+          .NEXT_PUBLIC_SITECORE_HOST_ORIGIN
+          ? {
+              origin:
+                process.env.NEXT_PUBLIC_SITECORE_HOST_ORIGIN
+            }
+          : {})
+      });
+      const adapter = {
+        query: async (name: string) => {
+          const r = await real.query(
+            name as "pages.context"
+          );
+          return { data: r.data };
+        },
+        subscribe: (
+          topic: string,
+          handler: (e: unknown) => void
+        ) =>
+          real.subscribe(
+            topic as "pages.content.layoutUpdated",
+            {
+              onData: (d) => handler(d)
+            }
+          )
       };
-      const sdk = await mod.createClient();
-      initSitecoreContext(sdk as unknown as never);
-      setSdkToken(await sdk.getSessionToken());
+      initSitecoreContext(adapter);
       setSdkReady(true);
     })();
   }, [sdkTokenForTests]);
