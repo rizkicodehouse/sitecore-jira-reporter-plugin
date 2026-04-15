@@ -8,6 +8,11 @@ const allowed = process.env.ALLOWED_PLUGIN_ORIGIN
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  allowedDevOrigins: [
+    "*.ngrok-free.app",
+    "*.ngrok.app",
+    "*.ngrok.io"
+  ],
   async headers() {
     return [
       {
