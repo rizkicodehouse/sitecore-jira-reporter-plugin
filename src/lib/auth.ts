@@ -95,6 +95,13 @@ export function getTenantId(req: Request): string | null {
 // this to short-circuit XMC calls (which would 502 with
 // a fake token) and fall back to empty data.
 export function isDevStubToken(token: string): boolean {
-  if (process.env.NODE_ENV === "production") return false;
+  // Mirrors the gate in verifySdkSession: stub tokens are
+  // allowed in non-prod, or in prod when ALLOW_STUB_TOKEN=1
+  // is explicitly set (interim until Auth0 lands — see
+  // docs/TODO-auth0-integration.md).
+  const stubAllowed =
+    process.env.NODE_ENV !== "production" ||
+    process.env.ALLOW_STUB_TOKEN === "1";
+  if (!stubAllowed) return false;
   return token.startsWith("stub-valid-");
 }
