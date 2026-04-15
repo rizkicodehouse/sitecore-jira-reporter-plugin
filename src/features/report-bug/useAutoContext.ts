@@ -37,13 +37,13 @@ export function useAutoContext(
         ]);
       if (cancelled) return;
       const ctx: ReportContext = {
-        page: pagesCtx
+        page: pagesCtx?.page
           ? {
-              id: pagesCtx.page.id,
-              title: pagesCtx.page.title,
-              url: pagesCtx.page.path,
-              language: pagesCtx.page.language,
-              site: pagesCtx.site.name
+              id: pagesCtx.page.id ?? "",
+              title: pagesCtx.page.title ?? "",
+              url: pagesCtx.page.path ?? "",
+              language: pagesCtx.page.language ?? "",
+              site: pagesCtx.site?.name ?? ""
             }
           : null,
         rendering: pagesCtx?.rendering ?? null,
