@@ -2,6 +2,29 @@ export type CaptureResult =
   | { ok: true; blob: Blob }
   | { ok: false; reason: "cancelled" | "unsupported" | "error" };
 
+// True when the browser exposes getDisplayMedia AND the
+// surrounding Permissions Policy allows display-capture
+// for this document. In a Sitecore plugin iframe the
+// Permissions Policy usually denies it, so we hide the
+// capture button rather than letting the user click and
+// get a cryptic violation.
+export function canCaptureScreen(): boolean {
+  if (typeof navigator === "undefined") return false;
+  if (!navigator.mediaDevices?.getDisplayMedia) return false;
+  if (typeof document === "undefined") return true;
+  const doc = document as unknown as {
+    permissionsPolicy?: {
+      allowsFeature: (name: string) => boolean;
+    };
+    featurePolicy?: {
+      allowsFeature: (name: string) => boolean;
+    };
+  };
+  const pp = doc.permissionsPolicy ?? doc.featurePolicy;
+  if (!pp?.allowsFeature) return true; // older browsers
+  return pp.allowsFeature("display-capture");
+}
+
 export async function captureVisibleTab(): Promise<CaptureResult> {
   const md = typeof navigator !== "undefined"
     ? navigator.mediaDevices : undefined;

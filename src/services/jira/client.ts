@@ -1,31 +1,77 @@
 import type { PluginError } from "@/lib/jira-errors";
+import type { NormalizedField }
+  from "@/lib/jira-create-meta";
 
 export type CreateIssuePayload = {
   summary: string;
   descriptionText: string;
   context: unknown;
   attachmentCount: number;
+  customFields?: Record<string, unknown>;
 };
 
 export type CreateIssueResult = { key: string; url: string };
 export type AttachmentResult = { id: string };
+export type CreateMetaResult = {
+  fields: NormalizedField[];
+};
 
 export class JiraClient {
-  constructor(private readonly opts: { sdkToken: string }) {}
+  constructor(
+    private readonly opts: {
+      sdkToken: string;
+      tenantId?: string;
+      userEmail?: string;
+      userName?: string;
+    }
+  ) {}
+
+  private headers(
+    extra: Record<string, string> = {}
+  ): Record<string, string> {
+    const h: Record<string, string> = {
+      "X-Sdk-Token": this.opts.sdkToken,
+      ...extra
+    };
+    if (this.opts.tenantId) {
+      h["X-Tenant-Id"] = this.opts.tenantId;
+    }
+    if (this.opts.userEmail) {
+      h["X-User-Email"] = this.opts.userEmail;
+    }
+    if (this.opts.userName) {
+      h["X-User-Name"] = this.opts.userName;
+    }
+    return h;
+  }
 
   async createIssue(
     payload: CreateIssuePayload
   ): Promise<CreateIssueResult> {
     const res = await fetch("/api/jira/issue", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Sdk-Token": this.opts.sdkToken
-      },
+      headers: this.headers({
+        "Content-Type": "application/json"
+      }),
       body: JSON.stringify(payload)
     });
     if (!res.ok) throw await this.asError(res);
     return (await res.json()) as CreateIssueResult;
+  }
+
+  async getCreateMeta(
+    projectKey: string, issueType: string
+  ): Promise<CreateMetaResult> {
+    const q = new URLSearchParams({
+      project: projectKey,
+      issueType: issueType
+    });
+    const res = await fetch(
+      `/api/jira/create-meta?${q}`,
+      { headers: this.headers() }
+    );
+    if (!res.ok) throw await this.asError(res);
+    return (await res.json()) as CreateMetaResult;
   }
 
   async uploadAttachment(
@@ -40,7 +86,7 @@ export class JiraClient {
       `/api/jira/attachment?issueKey=${encodeURIComponent(issueKey)}`,
       {
         method: "POST",
-        headers: { "X-Sdk-Token": this.opts.sdkToken },
+        headers: this.headers(),
         body: form
       }
     );

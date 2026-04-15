@@ -1,22 +1,40 @@
+export type RenderingInfo = {
+  id: string;
+  instanceId: string;
+  placeholderKey?: string;
+  dataSource?: string;
+  parameters?: Record<string, string>;
+};
+
 export type PagesContext = {
-  page: {
+  pageInfo?: {
     id: string;
-    path: string;
-    title: string;
-    language: string;
+    name?: string;
+    displayName?: string;
+    path?: string;
+    url?: string;
+    language?: string;
+    presentationDetails?: string;
+    template?: { name?: string; id?: string };
   };
-  site: { name: string };
-  rendering?: {
-    instanceId: string;
-    renderingId: string;
-    name: string;
-    templateName: string;
-  } | null;
+  siteInfo?: {
+    id?: string;
+    name?: string;
+    displayName?: string;
+    language?: string;
+  };
 };
 
 export type LayoutChangeEvent = {
   type: "page-layout" | "field-layout";
   renderingInstanceId?: string;
+  itemId?: string;
+};
+
+export type FieldsUpdatedEvent = {
+  itemId?: string;
+  language?: string;
+  itemVersion?: number;
 };
 
 export interface MarketplaceSdkLike {
@@ -40,17 +58,65 @@ export async function getPagesContext(): Promise<PagesContext> {
   return res.data as PagesContext;
 }
 
+export type HostUser = {
+  email?: string;
+  name?: string;
+  displayName?: string;
+  accountId?: string;
+};
+
+export async function getHostUser(): Promise<HostUser | null> {
+  if (!sdkRef) return null;
+  try {
+    const res = await sdkRef.query("host.user");
+    return (res?.data ?? null) as HostUser | null;
+  } catch {
+    return null;
+  }
+}
+
 export function subscribeToLayoutChanges(
   cb: (evt: LayoutChangeEvent) => void
 ): () => void {
   if (!sdkRef) throw new Error("sdk-not-initialised");
-  return sdkRef.subscribe("pages.layout", (e) =>
-    cb(e as LayoutChangeEvent)
+  return sdkRef.subscribe(
+    "pages.content.layoutUpdated",
+    (e) => cb(e as LayoutChangeEvent)
   );
+}
+
+export function subscribeToFieldUpdates(
+  cb: (evt: FieldsUpdatedEvent) => void
+): () => void {
+  if (!sdkRef) throw new Error("sdk-not-initialised");
+  return sdkRef.subscribe(
+    "pages.content.fieldsUpdated",
+    (e) => cb(e as FieldsUpdatedEvent)
+  );
+}
+
+export function parseRenderings(
+  presentationDetails?: string
+): RenderingInfo[] {
+  if (!presentationDetails) return [];
+  try {
+    const parsed = JSON.parse(presentationDetails) as {
+      devices?: Array<{
+        renderings?: RenderingInfo[];
+      }>;
+    };
+    const devices = parsed.devices ?? [];
+    return devices.flatMap((d) => d.renderings ?? []);
+  } catch {
+    return [];
+  }
 }
 
 export function getSelectedRendering(
   ctx: PagesContext
-): PagesContext["rendering"] {
-  return ctx.rendering ?? null;
+): RenderingInfo | null {
+  const list = parseRenderings(
+    ctx.pageInfo?.presentationDetails
+  );
+  return list[0] ?? null;
 }

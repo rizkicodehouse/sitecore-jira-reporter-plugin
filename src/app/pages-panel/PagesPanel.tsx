@@ -2,7 +2,10 @@
 import { FC, useEffect, useState } from "react";
 import {
   initSitecoreContext, getPagesContext,
-  subscribeToLayoutChanges
+  subscribeToLayoutChanges,
+  subscribeToFieldUpdates,
+  parseRenderings,
+  getHostUser
 } from "@/services/sitecore/context";
 import { ReportBugButton } from
   "@/features/report-bug/ReportBugButton";
@@ -10,13 +13,17 @@ import { ReportBugDialog } from
   "@/features/report-bug/ReportBugDialog";
 import { SettingsGear } from
   "@/features/settings/SettingsGear";
-import { SettingsView, type Settings } from
-  "@/features/settings/SettingsView";
+import {
+  SettingsView,
+  type PublicSettings,
+  type SettingsUpdate
+} from "@/features/settings/SettingsView";
 import { useAutoContext } from
   "@/features/report-bug/useAutoContext";
 import { JiraClient } from "@/services/jira/client";
-import { captureVisibleTab } from
-  "@/services/screenshot/capture";
+import {
+  captureVisibleTab, canCaptureScreen
+} from "@/services/screenshot/capture";
 
 export type PagesPanelProps = {
   sdkTokenForTests?: string;
@@ -33,6 +40,35 @@ export const PagesPanel: FC<PagesPanelProps> = (
   const [sdkToken, setSdkToken] = useState(
     sdkTokenForTests ?? ""
   );
+  const [activeInstanceId, setActiveInstanceId] =
+    useState<string | undefined>();
+  const [tenantId, setTenantId] = useState<string>("");
+  const [userEmail, setUserEmail] = useState<string>("");
+  const [userName, setUserName] = useState<string>("");
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const id =
+      params.get("marketplaceAppTenantId") ??
+      params.get("tenantId") ??
+      "dev";
+    setTenantId(id);
+  }, []);
+
+  useEffect(() => {
+    if (!sdkReady) return;
+    let cancelled = false;
+    (async () => {
+      const user = await getHostUser();
+      if (cancelled) return;
+      setUserEmail(user?.email ?? "");
+      setUserName(
+        user?.displayName ?? user?.name ?? ""
+      );
+    })();
+    return () => { cancelled = true; };
+  }, [sdkReady]);
 
   useEffect(() => {
     if (sdkTokenForTests) {
@@ -114,11 +150,13 @@ export const PagesPanel: FC<PagesPanelProps> = (
           return { data: r.data };
         },
         subscribe: (
-          _topic: string,
+          topic: string,
           handler: (e: unknown) => void
         ) =>
           real.subscribe(
-            "pages.content.layoutUpdated",
+            topic as
+              | "pages.content.layoutUpdated"
+              | "pages.content.fieldsUpdated",
             {
               onData: (d) => handler(d)
             }
@@ -140,10 +178,11 @@ export const PagesPanel: FC<PagesPanelProps> = (
     ) => {
       try {
         const ctx = await getPagesContext();
-        setHasSelection(Boolean(ctx.rendering));
+        const hasPage = Boolean(ctx?.pageInfo);
+        setHasSelection(hasPage);
         setDsId(
           evt?.renderingInstanceId ??
-            ctx.rendering?.instanceId
+            ctx?.pageInfo?.id
         );
       } catch {
         setHasSelection(false);
@@ -164,31 +203,72 @@ export const PagesPanel: FC<PagesPanelProps> = (
     };
   }, [sdkReady]);
 
+  useEffect(() => {
+    if (!sdkReady) return;
+    let off: (() => void) | null = null;
+    try {
+      off = subscribeToFieldUpdates(async (evt) => {
+        if (!evt.itemId) return;
+        try {
+          const ctx = await getPagesContext();
+          const list = parseRenderings(
+            ctx?.pageInfo?.presentationDetails
+          );
+          const match = list.find((r) =>
+            r.dataSource?.toLowerCase().endsWith(
+              evt.itemId!.toLowerCase()
+            )
+          );
+          if (match) setActiveInstanceId(match.instanceId);
+        } catch { /* ignore */ }
+      });
+    } catch { /* event unsupported */ }
+    return () => { if (off) off(); };
+  }, [sdkReady]);
+
   const autoCtx = useAutoContext({
     sdkToken,
-    datasourceItemId: dsId
+    tenantId,
+    userEmail,
+    userName,
+    datasourceItemId: dsId,
+    activeRenderingInstanceId: activeInstanceId
   });
-  const jira = new JiraClient({ sdkToken });
+  const jira = new JiraClient({
+    sdkToken, tenantId, userEmail, userName
+  });
 
-  async function loadSettings(): Promise<Settings> {
-    const res = await fetch("/api/settings", {
-      headers: { "X-Sdk-Token": sdkToken }
-    });
-    if (!res.ok) throw await toErr(res);
-    return (await res.json()) as Settings;
+  function authHeaders(
+    extra: Record<string, string> = {}
+  ): Record<string, string> {
+    const h: Record<string, string> = {
+      "X-Sdk-Token": sdkToken,
+      "X-Tenant-Id": tenantId,
+      ...extra
+    };
+    if (userEmail) h["X-User-Email"] = userEmail;
+    if (userName) h["X-User-Name"] = userName;
+    return h;
   }
 
-  async function saveSettings(next: Settings) {
+  async function loadSettings(): Promise<PublicSettings> {
+    const res = await fetch("/api/settings", {
+      headers: authHeaders()
+    });
+    if (!res.ok) throw await toErr(res);
+    return (await res.json()) as PublicSettings;
+  }
+
+  async function saveSettings(next: SettingsUpdate) {
     const res = await fetch("/api/settings", {
       method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Sdk-Token": sdkToken
-      },
+      headers: authHeaders({
+        "Content-Type": "application/json"
+      }),
       body: JSON.stringify(next)
     });
     if (!res.ok) throw await toErr(res);
-    return (await res.json()) as Settings;
+    return (await res.json()) as PublicSettings;
   }
 
   async function toErr(res: Response) {
@@ -214,9 +294,9 @@ export const PagesPanel: FC<PagesPanelProps> = (
       </div>
       {!hasSelection && (
         <p className="text-sm text-gray-600 mt-2">
-          Open a page in Sitecore Pages and select a
-          rendering to report a bug on it. Use the gear
-          icon to configure the target JIRA project.
+          Open a page in Sitecore Pages to report a bug on
+          it. Use the gear icon to configure the target
+          JIRA project.
         </p>
       )}
       {settingsOpen && (
@@ -231,9 +311,21 @@ export const PagesPanel: FC<PagesPanelProps> = (
           uploadAttachment={(k, b) =>
             jira.uploadAttachment(k, b)}
           onClose={() => setOpen(false)}
-          captureScreen={async () => {
-            const r = await captureVisibleTab();
-            return r.ok ? r.blob : null;
+          captureScreen={
+            canCaptureScreen()
+              ? async () => {
+                  const r = await captureVisibleTab();
+                  return r.ok ? r.blob : null;
+                }
+              : undefined
+          }
+          loadCreateMeta={() => {
+            const sPromise = loadSettings();
+            return sPromise.then((s) =>
+              jira.getCreateMeta(
+                s.projectKey, s.defaultIssueType
+              )
+            );
           }} />
       )}
     </div>

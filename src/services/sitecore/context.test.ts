@@ -18,9 +18,11 @@ describe("sitecore context", () => {
     sdk = {
       query: vi.fn().mockResolvedValue({
         data: {
-          page: { id: "P", path: "/en", title: "Home",
-                  language: "en" },
-          site: { name: "main" }
+          pageInfo: {
+            id: "P", name: "home", displayName: "Home",
+            path: "/en", url: "/en", language: "en"
+          },
+          siteInfo: { id: "S", name: "main" }
         }
       }),
       subscribe: vi.fn().mockReturnValue(() => {})
@@ -28,10 +30,10 @@ describe("sitecore context", () => {
     initSitecoreContext(sdk as never);
   });
 
-  it("getPagesContext returns cached page + site", async () => {
+  it("getPagesContext returns page + site", async () => {
     const ctx = await getPagesContext();
-    expect(ctx.page.id).toBe("P");
-    expect(ctx.site.name).toBe("main");
+    expect(ctx.pageInfo?.id).toBe("P");
+    expect(ctx.siteInfo?.name).toBe("main");
   });
 
   it("subscribeToLayoutChanges forwards events", () => {

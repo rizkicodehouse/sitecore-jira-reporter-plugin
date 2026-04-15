@@ -33,6 +33,7 @@ describe("POST /api/jira/issue", () => {
     vi.stubEnv("JIRA_BASE_URL", "https://j.example.com");
     vi.stubEnv("JIRA_SERVICE_EMAIL", "svc@x");
     vi.stubEnv("JIRA_API_TOKEN", "tok");
+    vi.stubEnv("JIRA_DEFAULT_PROJECT_KEY", "CLD");
   });
 
   it("creates issue on 201", async () => {

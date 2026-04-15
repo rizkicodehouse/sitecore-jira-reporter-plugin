@@ -5,17 +5,30 @@ import {
 import { renderHook, waitFor } from "@testing-library/react";
 import { useAutoContext } from "./useAutoContext";
 
-vi.mock("@/services/sitecore/context", () => ({
-  getPagesContext: vi.fn().mockResolvedValue({
-    page: { id: "P", path: "/en",
-            title: "Home", language: "en" },
-    site: { name: "main" },
-    rendering: {
-      instanceId: "abc", renderingId: "r",
-      name: "Hero", templateName: "Banner"
-    }
-  })
-}));
+vi.mock("@/services/sitecore/context", async () => {
+  const actual = await vi.importActual<
+    typeof import("@/services/sitecore/context")
+  >("@/services/sitecore/context");
+  return {
+    ...actual,
+    getPagesContext: vi.fn().mockResolvedValue({
+      pageInfo: {
+        id: "P", name: "home", displayName: "Home",
+        path: "/en", url: "/en", language: "en",
+        presentationDetails: JSON.stringify({
+          devices: [{
+            renderings: [{
+              id: "r", instanceId: "abc",
+              placeholderKey: "main",
+              dataSource: "Hero"
+            }]
+          }]
+        })
+      },
+      siteInfo: { id: "S", name: "main" }
+    })
+  };
+});
 
 describe("useAutoContext", () => {
   beforeEach(() => {
@@ -40,16 +53,21 @@ describe("useAutoContext", () => {
 
   it("populates all context fields on mount", async () => {
     const { result } = renderHook(() =>
-      useAutoContext({ sdkToken: "stub-valid",
-                       datasourceItemId: "uid" })
+      useAutoContext({
+        sdkToken: "stub-valid",
+        datasourceItemId: "uid",
+        activeRenderingInstanceId: "abc"
+      })
     );
     await waitFor(() =>
       expect(result.current.loading).toBe(false)
     );
     expect(result.current.context?.reporter?.email)
       .toBe("a@x.com");
-    expect(result.current.context?.rendering?.name)
-      .toBe("Hero");
+    expect(result.current.context?.rendering?.renderingId)
+      .toBe("r");
+    expect(result.current.context?.renderings.length)
+      .toBe(1);
     expect(result.current.context?.datasource?.fields.Title)
       .toBe("T");
   });

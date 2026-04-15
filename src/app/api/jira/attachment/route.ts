@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
-import { verifySdkSession } from "@/lib/auth";
+import { verifySdkSession, getTenantId } from "@/lib/auth";
 import { getJiraQueue } from "@/lib/rate-limit";
 import { mapJiraError } from "@/lib/jira-errors";
+import {
+  resolveJiraCreds, basicAuthHeader
+} from "@/lib/jira-creds";
 
 export async function POST(req: Request) {
   const s = await verifySdkSession(req);
@@ -14,18 +17,21 @@ export async function POST(req: Request) {
   if (!(file instanceof Blob)) {
     return err(400, "attach.no-file");
   }
+  const creds = await resolveJiraCreds(getTenantId(req));
+  if (creds.source === "none") {
+    return err(412, "attach.not-configured");
+  }
   const outbound = new FormData();
   outbound.append(
     "file", file,
     (file as File).name ?? `screenshot-${Date.now()}.png`
   );
-  const auth = basicAuth(
-    process.env.JIRA_SERVICE_EMAIL!,
-    process.env.JIRA_API_TOKEN!
+  const auth = basicAuthHeader(
+    creds.serviceEmail, creds.apiToken
   );
   try {
     const upstream = await getJiraQueue().add(() => fetch(
-      `${process.env.JIRA_BASE_URL}` +
+      `${creds.baseUrl}` +
       `/rest/api/3/issue/${encodeURIComponent(issueKey)}` +
       `/attachments`,
       {
@@ -55,19 +61,19 @@ export async function POST(req: Request) {
   }
 }
 
-function basicAuth(user: string, pass: string): string {
-  return "Basic " + Buffer
-    .from(`${user}:${pass}`).toString("base64");
-}
-
 function err(status: number, code: string) {
   return NextResponse.json(
     { error: {
-        category: status === 401 ? "permission" : "retryable",
+        category:
+          status === 401 ? "permission" :
+          status === 412 ? "config" :
+          "retryable",
         userMessage:
           status === 400 ? "Invalid attachment request" :
           status === 401 ? "Sign-in required" :
-          "JIRA is temporarily unavailable",
+          status === 412
+            ? "JIRA is not configured. Open Settings first."
+            : "JIRA is temporarily unavailable",
         logCode: code
     } },
     { status }

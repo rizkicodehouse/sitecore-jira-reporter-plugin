@@ -3,23 +3,36 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { PagesPanel } from "./PagesPanel";
 
-vi.mock("@/services/sitecore/context", () => ({
-  initSitecoreContext: vi.fn(),
-  getPagesContext: vi.fn().mockResolvedValue({
-    page: { id: "P", path: "/en", title: "Home",
-            language: "en" },
-    site: { name: "main" },
-    rendering: {
-      instanceId: "abc", renderingId: "r",
-      name: "Hero", templateName: "Banner"
-    }
-  }),
-  subscribeToLayoutChanges: vi.fn((cb) => {
-    cb({ type: "page-layout",
-         renderingInstanceId: "abc" });
-    return () => {};
-  })
-}));
+vi.mock("@/services/sitecore/context", async () => {
+  const actual = await vi.importActual<
+    typeof import("@/services/sitecore/context")
+  >("@/services/sitecore/context");
+  return {
+    ...actual,
+    initSitecoreContext: vi.fn(),
+    getPagesContext: vi.fn().mockResolvedValue({
+      pageInfo: {
+        id: "P", name: "home", displayName: "Home",
+        path: "/en", url: "/en", language: "en",
+        presentationDetails: JSON.stringify({
+          devices: [{
+            renderings: [{
+              id: "r", instanceId: "abc",
+              placeholderKey: "main",
+              dataSource: "Hero"
+            }]
+          }]
+        })
+      },
+      siteInfo: { id: "S", name: "main" }
+    }),
+    subscribeToLayoutChanges: vi.fn((cb) => {
+      cb({ type: "page-layout",
+           renderingInstanceId: "abc" });
+      return () => {};
+    })
+  };
+});
 
 describe("PagesPanel", () => {
   beforeEach(() => {

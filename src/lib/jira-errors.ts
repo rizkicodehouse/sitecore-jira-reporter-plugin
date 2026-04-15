@@ -34,11 +34,16 @@ export function mapJiraError(u: UpstreamInput): PluginError {
       "Configured JIRA project not found — check plugin " +
       "settings."
   };
-  if (status === 400) return {
-    category: "unknown", logCode: "jira.400.validation",
-    userMessage:
-      "JIRA rejected the request. Please contact support."
-  };
+  if (status === 400) {
+    const detail = extractJiraValidationDetail(u.upstreamBody);
+    return {
+      category: "config", logCode: "jira.400.validation",
+      userMessage: detail
+        ? `JIRA rejected the request: ${detail}`
+        : "JIRA rejected the request. Check Settings — " +
+          "project key, issue type, labels, assignee."
+    };
+  }
   if (status === 413) return {
     category: "retryable",
     logCode: "jira.413.payload-too-large",
@@ -58,4 +63,29 @@ export function mapJiraError(u: UpstreamInput): PluginError {
     category: "unknown", logCode: `jira.${status}.unknown`,
     userMessage: "JIRA returned an unexpected error."
   };
+}
+
+function extractJiraValidationDetail(
+  body: unknown
+): string | null {
+  if (!body || typeof body !== "object") return null;
+  const b = body as {
+    errorMessages?: string[];
+    errors?: Record<string, string>;
+  };
+  const messages: string[] = [];
+  if (Array.isArray(b.errorMessages)) {
+    messages.push(...b.errorMessages);
+  }
+  if (b.errors && typeof b.errors === "object") {
+    for (const [field, msg] of Object.entries(b.errors)) {
+      messages.push(`${field}: ${msg}`);
+    }
+  }
+  if (messages.length === 0) return null;
+  // Cap length so the banner stays readable.
+  const joined = messages.join("; ");
+  return joined.length > 300
+    ? joined.slice(0, 297) + "…"
+    : joined;
 }

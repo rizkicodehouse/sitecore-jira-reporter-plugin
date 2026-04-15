@@ -49,7 +49,13 @@ export type DescriptionInput = {
     language: string; site: string;
   } | null;
   rendering: {
-    name: string; template: string; instanceId: string;
+    name?: string;
+    template?: string;
+    templateName?: string;
+    instanceId: string;
+    renderingId?: string;
+    placeholderKey?: string;
+    dataSource?: string;
   } | null;
   datasource: {
     fields: Record<string, string>;
@@ -83,9 +89,18 @@ export function buildDescription(
   sections.push(h2("Rendering"));
   sections.push(para(
     input.rendering
-      ? `${input.rendering.name} (${input.rendering.template}) · ` +
-        `${input.rendering.instanceId}`
-      : "(unavailable)"
+      ? [
+          input.rendering.name ||
+            input.rendering.dataSource ||
+            input.rendering.renderingId || "(unnamed)",
+          input.rendering.template
+            ?? input.rendering.templateName ?? "",
+          `instance: ${input.rendering.instanceId}`,
+          input.rendering.placeholderKey
+            ? `placeholder: ${input.rendering.placeholderKey}`
+            : ""
+        ].filter(Boolean).join(" · ")
+      : "(page-level or unavailable)"
   ));
   sections.push(h2("Datasource fields"));
   if (input.datasource &&

@@ -1,10 +1,17 @@
 import { useEffect, useState } from "react";
-import { getPagesContext } from "@/services/sitecore/context";
+import {
+  getPagesContext,
+  parseRenderings
+} from "@/services/sitecore/context";
 import type { ReportContext } from "./types";
 
 export type UseAutoContextOpts = {
   sdkToken: string;
+  tenantId?: string;
+  userEmail?: string;
+  userName?: string;
   datasourceItemId?: string;
+  activeRenderingInstanceId?: string;
 };
 
 export type UseAutoContextState = {
@@ -30,27 +37,54 @@ export function useAutoContext(
       const [pagesCtx, reporter, datasource] =
         await Promise.all([
           getPagesContext().catch(() => null),
-          fetchMe(opts.sdkToken),
+          fetchMe(opts),
           opts.datasourceItemId
             ? fetchDatasource(
-                opts.sdkToken,
+                opts,
                 opts.datasourceItemId,
                 "en"
               )
             : Promise.resolve(null)
         ]);
       if (cancelled) return;
+      const pageInfo = pagesCtx?.pageInfo;
+      const siteInfo = pagesCtx?.siteInfo;
+      const allRenderings = parseRenderings(
+        pageInfo?.presentationDetails
+      );
+      const renderings = allRenderings.map((r) => ({
+        instanceId: r.instanceId,
+        renderingId: r.id,
+        name: deriveName(r.dataSource),
+        templateName: "",
+        placeholderKey: r.placeholderKey,
+        dataSource: r.dataSource
+      }));
+      const active = opts.activeRenderingInstanceId
+        ? renderings.find(
+            (r) =>
+              r.instanceId ===
+              opts.activeRenderingInstanceId
+          ) ?? null
+        : null;
       const ctx: ReportContext = {
-        page: pagesCtx?.page
+        page: pageInfo
           ? {
-              id: pagesCtx.page.id ?? "",
-              title: pagesCtx.page.title ?? "",
-              url: pagesCtx.page.path ?? "",
-              language: pagesCtx.page.language ?? "",
-              site: pagesCtx.site?.name ?? ""
+              id: pageInfo.id ?? "",
+              title:
+                pageInfo.displayName ??
+                pageInfo.name ?? "",
+              url:
+                pageInfo.url ??
+                pageInfo.path ?? "",
+              language: pageInfo.language ?? "",
+              site:
+                siteInfo?.displayName ??
+                siteInfo?.name ?? ""
             }
           : null,
-        rendering: pagesCtx?.rendering ?? null,
+        rendering: active,
+        renderings,
         datasource: datasource
           ? { itemId: opts.datasourceItemId!,
               templateName: "",
@@ -71,25 +105,50 @@ export function useAutoContext(
       setState({ loading: false, context: ctx, error: null });
     })();
     return () => { cancelled = true; };
-  }, [opts.sdkToken, opts.datasourceItemId]);
+  }, [
+    opts.sdkToken,
+    opts.datasourceItemId,
+    opts.activeRenderingInstanceId
+  ]);
 
   return state;
 }
 
-async function fetchMe(sdkToken: string) {
+function deriveName(dataSource?: string): string {
+  if (!dataSource) return "";
+  const last = dataSource.split("/").pop() ?? dataSource;
+  return last.trim() || dataSource;
+}
+
+function authHeaders(
+  opts: UseAutoContextOpts
+): Record<string, string> {
+  const h: Record<string, string> = {
+    "X-Sdk-Token": opts.sdkToken
+  };
+  if (opts.tenantId) h["X-Tenant-Id"] = opts.tenantId;
+  if (opts.userEmail) h["X-User-Email"] = opts.userEmail;
+  if (opts.userName) h["X-User-Name"] = opts.userName;
+  return h;
+}
+
+async function fetchMe(opts: UseAutoContextOpts) {
   const res = await fetch("/api/xmc/me", {
-    headers: { "X-Sdk-Token": sdkToken }
+    headers: authHeaders(opts)
   });
   if (!res.ok) return null;
-  return (await res.json()) as { name: string; email: string };
+  return (await res.json()) as {
+    name: string; email: string;
+  };
 }
 
 async function fetchDatasource(
-  sdkToken: string, itemId: string, language: string
+  opts: UseAutoContextOpts,
+  itemId: string, language: string
 ) {
   const q = new URLSearchParams({ itemId, language });
   const res = await fetch(`/api/xmc/datasource?${q}`, {
-    headers: { "X-Sdk-Token": sdkToken }
+    headers: authHeaders(opts)
   });
   if (!res.ok) return null;
   const body = (await res.json()) as {

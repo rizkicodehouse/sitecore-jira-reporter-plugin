@@ -7,7 +7,7 @@ describe("mapJiraError", () => {
     [401, "config",    /not configured correctly/i],
     [403, "config",    /not configured correctly/i],
     [404, "config",    /project not found/i],
-    [400, "unknown",   /JIRA rejected/i],
+    [400, "config",    /JIRA rejected/i],
     [413, "retryable", /too large/i],
     [429, "retryable", /try again/i],
     [500, "retryable", /temporarily unavailable/i],
@@ -37,5 +37,28 @@ describe("mapJiraError", () => {
       status: 418, upstreamBody: {}
     });
     expect(err.category).toBe("unknown");
+  });
+
+  it("surfaces JIRA 400 detail from errors map", () => {
+    const err = mapJiraError({
+      status: 400,
+      upstreamBody: {
+        errorMessages: [],
+        errors: { issuetype: "Issue type is required." }
+      }
+    });
+    expect(err.userMessage)
+      .toMatch(/issuetype: Issue type is required/);
+  });
+
+  it("surfaces JIRA 400 detail from errorMessages", () => {
+    const err = mapJiraError({
+      status: 400,
+      upstreamBody: {
+        errorMessages: ["Project 'SJP' doesn't exist."]
+      }
+    });
+    expect(err.userMessage)
+      .toMatch(/Project 'SJP' doesn't exist/);
   });
 });

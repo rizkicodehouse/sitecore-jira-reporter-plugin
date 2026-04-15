@@ -12,6 +12,10 @@ const ctx: ReportContext = {
     instanceId: "a", renderingId: "r",
     name: "Hero", templateName: "Banner"
   },
+  renderings: [{
+    instanceId: "a", renderingId: "r",
+    name: "Hero", templateName: "Banner"
+  }],
   datasource: {
     itemId: "a", templateName: "Banner",
     fields: { Title: "Welcome" }
