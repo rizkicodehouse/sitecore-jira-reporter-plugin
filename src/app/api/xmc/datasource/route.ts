@@ -9,13 +9,15 @@ export async function GET(req: Request) {
   const itemId = url.searchParams.get("itemId");
   const language = url.searchParams.get("language");
   if (!itemId || !language) return err(400, "params.missing");
-  const baseUrl = process.env.XMC_TENANT_URL;
-  if (!baseUrl) return err(500, "xmc.not-configured");
   const token = req.headers.get("X-Sdk-Token") ?? "";
   const isDevStub =
     process.env.NODE_ENV !== "production" &&
     token.startsWith("stub-valid-");
   if (isDevStub) {
+    return NextResponse.json({ fields: {} });
+  }
+  const baseUrl = process.env.XMC_TENANT_URL;
+  if (!baseUrl) {
     return NextResponse.json({ fields: {} });
   }
   try {

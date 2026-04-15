@@ -4,14 +4,21 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { SettingsView } from "./SettingsView";
 
+const basePublic = {
+  projectKey: "CLD",
+  defaultIssueType: "Bug",
+  defaultLabels: ["page-builder"],
+  defaultAssigneeAccountId: null,
+  defaultBoardId: null,
+  jiraBaseUrl: "https://x.atlassian.net",
+  jiraServiceEmail: "svc@x.com",
+  hasJiraApiToken: true,
+  adminEmails: []
+};
+
 describe("SettingsView", () => {
   it("loads current settings on mount", async () => {
-    const load = vi.fn().mockResolvedValue({
-      projectKey: "CLD",
-      defaultIssueType: "Bug",
-      defaultLabels: ["page-builder"],
-      defaultAssigneeAccountId: null
-    });
+    const load = vi.fn().mockResolvedValue(basePublic);
     render(<SettingsView load={load} save={vi.fn()} />);
     await waitFor(() =>
       expect(
@@ -23,18 +30,10 @@ describe("SettingsView", () => {
 
   it("saves updated settings", async () => {
     const save = vi.fn().mockResolvedValue({
-      projectKey: "OPS",
-      defaultIssueType: "Bug",
-      defaultLabels: [],
-      defaultAssigneeAccountId: null
+      ...basePublic, projectKey: "OPS"
     });
     render(<SettingsView
-      load={vi.fn().mockResolvedValue({
-        projectKey: "CLD",
-        defaultIssueType: "Bug",
-        defaultLabels: [],
-        defaultAssigneeAccountId: null
-      })}
+      load={vi.fn().mockResolvedValue(basePublic)}
       save={save}
     />);
     const input = await screen.findByLabelText(/project key/i);
@@ -55,12 +54,7 @@ describe("SettingsView", () => {
       userMessage: "Admin access required"
     });
     render(<SettingsView
-      load={vi.fn().mockResolvedValue({
-        projectKey: "CLD",
-        defaultIssueType: "Bug",
-        defaultLabels: [],
-        defaultAssigneeAccountId: null
-      })}
+      load={vi.fn().mockResolvedValue(basePublic)}
       save={save}
     />);
     await screen.findByLabelText(/project key/i);

@@ -4,7 +4,7 @@ import { getSettingsStore } from "@/lib/settings-store";
 export async function GET() {
   let settingsLoaded = false;
   try {
-    await getSettingsStore().get();
+    await getSettingsStore().get("__health__");
     settingsLoaded = true;
   } catch {}
   return NextResponse.json({

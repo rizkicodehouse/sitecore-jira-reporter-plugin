@@ -19,11 +19,19 @@ export async function verifySdkSession(
   }
   if (process.env.NODE_ENV !== "production" &&
       token.startsWith("stub-valid")) {
+    const claimedEmail = req.headers.get("X-User-Email");
+    const claimedName = req.headers.get("X-User-Name");
     return {
       ok: true,
       session: {
-        email: "dev@local", name: "Dev User",
-        tenantId: "dev-tenant"
+        email:
+          claimedEmail?.trim() ||
+          process.env.DEV_STUB_EMAIL ||
+          "dev@local",
+        name:
+          claimedName?.trim() || "Dev User",
+        tenantId:
+          getTenantId(req) ?? "dev-tenant"
       }
     };
   }
@@ -49,10 +57,26 @@ declare global {
     ((t: string) => Promise<SdkSession>) | undefined;
 }
 
-export function isAdminEmail(email: string): boolean {
-  const raw = process.env.PLUGIN_ADMIN_EMAILS ?? "";
-  const list = raw.split(",")
-    .map((s) => s.trim().toLowerCase())
-    .filter(Boolean);
-  return list.includes(email.trim().toLowerCase());
+export function isAdminEmail(
+  email: string,
+  adminEmails: string[] = []
+): boolean {
+  const envSuperAdmins =
+    (process.env.PLUGIN_ADMIN_EMAILS ?? "")
+      .split(",").map((s) => s.trim()).filter(Boolean)
+      .map((s) => s.toLowerCase());
+  const tenantAdmins =
+    adminEmails.map((s) => s.toLowerCase());
+  const combined = [...envSuperAdmins, ...tenantAdmins];
+  if (combined.length === 0) return false;
+  return combined.includes(email.trim().toLowerCase());
+}
+
+export function getTenantId(req: Request): string | null {
+  const header = req.headers.get("X-Tenant-Id");
+  if (header && header.trim()) return header.trim();
+  const url = new URL(req.url);
+  const qp = url.searchParams.get("tenantId");
+  if (qp && qp.trim()) return qp.trim();
+  return null;
 }

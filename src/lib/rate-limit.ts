@@ -24,16 +24,20 @@ export class JiraQueue {
   get size(): number { return this.queue.size; }
 }
 
-let singleton: JiraQueue | null = null;
+type QueueGlobals = {
+  __jpJiraQueue?: JiraQueue | null;
+};
+const qg = globalThis as unknown as QueueGlobals;
+
 export function getJiraQueue(): JiraQueue {
-  if (!singleton) {
-    singleton = new JiraQueue({
+  if (!qg.__jpJiraQueue) {
+    qg.__jpJiraQueue = new JiraQueue({
       concurrency: 1, intervalCap: 3, interval: 1000
     });
   }
-  return singleton;
+  return qg.__jpJiraQueue;
 }
 
 export function resetJiraQueueForTests(): void {
-  singleton = null;
+  qg.__jpJiraQueue = null;
 }
