@@ -44,12 +44,6 @@ describe("PagesPanel", () => {
             { status: 200 }
           ));
         }
-        if (url.includes("/api/xmc/datasource")) {
-          return Promise.resolve(new Response(
-            JSON.stringify({ fields: { T: "v" } }),
-            { status: 200 }
-          ));
-        }
         if (url.includes("/api/jira/issue")) {
           return Promise.resolve(new Response(
             JSON.stringify({

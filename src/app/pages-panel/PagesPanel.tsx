@@ -21,6 +21,7 @@ import {
 import { useAutoContext } from
   "@/features/report-bug/useAutoContext";
 import { JiraClient } from "@/services/jira/client";
+import { buildAuthHeaders } from "@/lib/api-headers";
 import {
   captureVisibleTab, canCaptureScreen
 } from "@/services/screenshot/capture";
@@ -34,7 +35,6 @@ export const PagesPanel: FC<PagesPanelProps> = (
 ) => {
   const [sdkReady, setSdkReady] = useState(false);
   const [hasSelection, setHasSelection] = useState(false);
-  const [dsId, setDsId] = useState<string | undefined>();
   const [open, setOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [sdkToken, setSdkToken] = useState(
@@ -72,18 +72,10 @@ export const PagesPanel: FC<PagesPanelProps> = (
 
   useEffect(() => {
     if (sdkTokenForTests) {
-      const stub = {
-        query: async () => ({
-          data: await getPagesContext()
-        }),
-        subscribe: (_: string, cb: (e: unknown) => void) => {
-          const off = subscribeToLayoutChanges(
-            (e) => cb(e)
-          );
-          return off;
-        }
-      };
-      initSitecoreContext(stub as never);
+      // Test path: caller supplies sdkToken and is
+      // expected to vi.mock @/services/sitecore/context
+      // for query/subscribe behaviour. We just flip
+      // sdkReady so the rest of the panel renders.
       setSdkReady(true);
       return;
     }
@@ -173,25 +165,18 @@ export const PagesPanel: FC<PagesPanelProps> = (
   useEffect(() => {
     if (!sdkReady) return;
     let off: (() => void) | null = null;
-    const refreshSelection = async (
-      evt?: { renderingInstanceId?: string }
-    ) => {
+    const refreshSelection = async () => {
       try {
         const ctx = await getPagesContext();
-        const hasPage = Boolean(ctx?.pageInfo);
-        setHasSelection(hasPage);
-        setDsId(
-          evt?.renderingInstanceId ??
-            ctx?.pageInfo?.id
-        );
+        setHasSelection(Boolean(ctx?.pageInfo));
       } catch {
         setHasSelection(false);
       }
     };
     refreshSelection();
     try {
-      off = subscribeToLayoutChanges((evt) => {
-        refreshSelection(evt);
+      off = subscribeToLayoutChanges(() => {
+        refreshSelection();
       });
     } catch {
       /* subscription unsupported — poll instead */
@@ -231,29 +216,19 @@ export const PagesPanel: FC<PagesPanelProps> = (
     tenantId,
     userEmail,
     userName,
-    datasourceItemId: dsId,
     activeRenderingInstanceId: activeInstanceId
   });
   const jira = new JiraClient({
     sdkToken, tenantId, userEmail, userName
   });
 
-  function authHeaders(
-    extra: Record<string, string> = {}
-  ): Record<string, string> {
-    const h: Record<string, string> = {
-      "X-Sdk-Token": sdkToken,
-      "X-Tenant-Id": tenantId,
-      ...extra
-    };
-    if (userEmail) h["X-User-Email"] = userEmail;
-    if (userName) h["X-User-Name"] = userName;
-    return h;
-  }
+  const identity = {
+    sdkToken, tenantId, userEmail, userName
+  };
 
   async function loadSettings(): Promise<PublicSettings> {
     const res = await fetch("/api/settings", {
-      headers: authHeaders()
+      headers: buildAuthHeaders(identity)
     });
     if (!res.ok) throw await toErr(res);
     return (await res.json()) as PublicSettings;
@@ -262,7 +237,7 @@ export const PagesPanel: FC<PagesPanelProps> = (
   async function saveSettings(next: SettingsUpdate) {
     const res = await fetch("/api/settings", {
       method: "PUT",
-      headers: authHeaders({
+      headers: buildAuthHeaders(identity, {
         "Content-Type": "application/json"
       }),
       body: JSON.stringify(next)

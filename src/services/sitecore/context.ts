@@ -111,12 +111,3 @@ export function parseRenderings(
     return [];
   }
 }
-
-export function getSelectedRendering(
-  ctx: PagesContext
-): RenderingInfo | null {
-  const list = parseRenderings(
-    ctx.pageInfo?.presentationDetails
-  );
-  return list[0] ?? null;
-}

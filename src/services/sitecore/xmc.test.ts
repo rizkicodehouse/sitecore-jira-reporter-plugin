@@ -1,7 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import {
-  createXmcClient, GET_ITEM_QUERY, GET_ME_QUERY
-} from "./xmc";
+import { createXmcClient, GET_ME_QUERY } from "./xmc";
 
 describe("XmcClient", () => {
   it("getCurrentUser calls XMC with bearer token", async () => {
@@ -28,31 +26,7 @@ describe("XmcClient", () => {
     expect(parsed.query).toBe(GET_ME_QUERY);
   });
 
-  it("getDatasourceFields returns name→value map",
-     async () => {
-    const fetchMock = vi.fn().mockResolvedValue(new Response(
-      JSON.stringify({
-        data: { item: {
-          fields: [
-            { name: "Title", value: "Welcome" },
-            { name: "Body", value: "Hello" }
-          ]
-        } }
-      }),
-      { status: 200 }
-    ));
-    const c = createXmcClient({
-      baseUrl: "https://xmc.example.com",
-      token: "t", fetch: fetchMock
-    });
-    const fields = await c.getDatasourceFields("uid", "en");
-    expect(fields).toEqual({
-      Title: "Welcome", Body: "Hello"
-    });
-    expect(GET_ITEM_QUERY).toContain("item(path:");
-  });
-
-  it("returns null map on upstream error", async () => {
+  it("throws on upstream error", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response("nope", { status: 500 })
     );
@@ -60,7 +34,7 @@ describe("XmcClient", () => {
       baseUrl: "https://xmc.example.com",
       token: "t", fetch: fetchMock
     });
-    await expect(c.getDatasourceFields("uid", "en"))
+    await expect(c.getCurrentUser())
       .rejects.toThrow();
   });
 });

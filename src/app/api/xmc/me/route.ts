@@ -1,15 +1,12 @@
 import { NextResponse } from "next/server";
-import { verifySdkSession } from "@/lib/auth";
+import { verifySdkSession, isDevStubToken } from "@/lib/auth";
 import { createXmcClient } from "@/services/sitecore/xmc";
 
 export async function GET(req: Request) {
   const s = await verifySdkSession(req);
   if (!s.ok) return fail(401, "auth.missing");
   const token = req.headers.get("X-Sdk-Token") ?? "";
-  const isDevStub =
-    process.env.NODE_ENV !== "production" &&
-    token.startsWith("stub-valid-");
-  if (isDevStub) {
+  if (isDevStubToken(token)) {
     return NextResponse.json({ name: "", email: "" });
   }
   const baseUrl = process.env.XMC_TENANT_URL;

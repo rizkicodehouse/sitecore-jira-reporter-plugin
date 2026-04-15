@@ -10,8 +10,7 @@ export const PublicSettingsSchema = z.object({
   jiraBaseUrl: z.string(),
   jiraServiceEmail: z.string(),
   hasJiraApiToken: z.boolean(),
-  adminEmails: z.array(z.string()),
-  maxAttachmentMb: z.number().int().positive().optional()
+  adminEmails: z.array(z.string())
 });
 export type PublicSettings = z.infer<typeof PublicSettingsSchema>;
 
@@ -24,8 +23,7 @@ export const SettingsUpdateSchema = z.object({
   jiraBaseUrl: z.string().url().or(z.literal("")),
   jiraServiceEmail: z.string(),
   jiraApiToken: z.string().optional(),
-  adminEmails: z.array(z.string()),
-  maxAttachmentMb: z.number().int().positive().optional()
+  adminEmails: z.array(z.string())
 });
 export type SettingsUpdate = z.infer<typeof SettingsUpdateSchema>;
 
@@ -42,8 +40,7 @@ export const DEFAULT_SETTINGS: StoredSettings = {
   jiraBaseUrl: "",
   jiraServiceEmail: "",
   jiraApiTokenEnc: null,
-  adminEmails: [],
-  maxAttachmentMb: undefined
+  adminEmails: []
 };
 
 export type StoreOptions = {
@@ -130,10 +127,6 @@ export class SettingsStore {
     return toPublic(stored);
   }
 
-  invalidate(tenantId: string) {
-    this.cache.delete(tenantId);
-  }
-
   private keyOf(tenantId: string): string {
     return `plugin:settings:${tenantId}`;
   }
@@ -169,8 +162,7 @@ function toPublic(s: StoredSettings): PublicSettings {
     jiraBaseUrl: s.jiraBaseUrl,
     jiraServiceEmail: s.jiraServiceEmail,
     hasJiraApiToken: Boolean(s.jiraApiTokenEnc),
-    adminEmails: s.adminEmails,
-    maxAttachmentMb: s.maxAttachmentMb
+    adminEmails: s.adminEmails
   };
 }
 

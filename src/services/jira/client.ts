@@ -1,6 +1,7 @@
 import type { PluginError } from "@/lib/jira-errors";
 import type { NormalizedField }
   from "@/lib/jira-create-meta";
+import { buildAuthHeaders } from "@/lib/api-headers";
 
 export type CreateIssuePayload = {
   summary: string;
@@ -29,20 +30,7 @@ export class JiraClient {
   private headers(
     extra: Record<string, string> = {}
   ): Record<string, string> {
-    const h: Record<string, string> = {
-      "X-Sdk-Token": this.opts.sdkToken,
-      ...extra
-    };
-    if (this.opts.tenantId) {
-      h["X-Tenant-Id"] = this.opts.tenantId;
-    }
-    if (this.opts.userEmail) {
-      h["X-User-Email"] = this.opts.userEmail;
-    }
-    if (this.opts.userName) {
-      h["X-User-Name"] = this.opts.userName;
-    }
-    return h;
+    return buildAuthHeaders(this.opts, extra);
   }
 
   async createIssue(

@@ -8,6 +8,55 @@ export type PluginError = {
   retryAfterSeconds?: number;
 };
 
+// Default category from HTTP status. Routes can pass an
+// override when they have more context (e.g. 412 = config).
+export function categoryForStatus(
+  status: number
+): PluginErrorCategory {
+  if (status === 401 || status === 403) return "permission";
+  if (status === 412) return "config";
+  if (status === 400) return "unknown";
+  if (status === 429) return "retryable";
+  if (status >= 500 && status < 600) return "retryable";
+  return "unknown";
+}
+
+const DEFAULT_USER_MESSAGES: Record<number, string> = {
+  400: "Bad request",
+  401: "Sign-in required",
+  403: "Permission denied",
+  404: "Not found",
+  412: "Plugin not configured",
+  429: "Service is busy — try again shortly",
+  500: "Service is temporarily unavailable",
+  502: "Service is temporarily unavailable",
+  503: "Service is temporarily unavailable"
+};
+
+export type PluginErrorInit = {
+  status: number;
+  logCode: string;
+  userMessage?: string;
+  category?: PluginErrorCategory;
+  retryAfterSeconds?: number;
+};
+
+export function pluginError(
+  init: PluginErrorInit
+): PluginError {
+  return {
+    category: init.category ?? categoryForStatus(init.status),
+    userMessage:
+      init.userMessage ??
+      DEFAULT_USER_MESSAGES[init.status] ??
+      "Unexpected error",
+    logCode: init.logCode,
+    ...(init.retryAfterSeconds !== undefined
+      ? { retryAfterSeconds: init.retryAfterSeconds }
+      : {})
+  };
+}
+
 export type UpstreamInput = {
   status: number;
   upstreamBody: unknown;

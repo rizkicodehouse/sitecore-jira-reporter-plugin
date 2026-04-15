@@ -80,3 +80,14 @@ export function getTenantId(req: Request): string | null {
   if (qp && qp.trim()) return qp.trim();
   return null;
 }
+
+// True for the dev-mode session token issued by
+// PagesPanel when there is no real Sitecore SDK to verify
+// (window.parent === window) or when running embedded
+// without proper JWT verification wired up. Routes use
+// this to short-circuit XMC calls (which would 502 with
+// a fake token) and fall back to empty data.
+export function isDevStubToken(token: string): boolean {
+  if (process.env.NODE_ENV === "production") return false;
+  return token.startsWith("stub-valid-");
+}

@@ -40,12 +40,6 @@ describe("useAutoContext", () => {
             { status: 200 }
           ));
         }
-        if (url.includes("/api/xmc/datasource")) {
-          return Promise.resolve(new Response(
-            JSON.stringify({ fields: { Title: "T" } }),
-            { status: 200 }
-          ));
-        }
         return Promise.reject(new Error("unexpected"));
       }
     ));
@@ -55,7 +49,6 @@ describe("useAutoContext", () => {
     const { result } = renderHook(() =>
       useAutoContext({
         sdkToken: "stub-valid",
-        datasourceItemId: "uid",
         activeRenderingInstanceId: "abc"
       })
     );
@@ -68,7 +61,6 @@ describe("useAutoContext", () => {
       .toBe("r");
     expect(result.current.context?.renderings.length)
       .toBe(1);
-    expect(result.current.context?.datasource?.fields.Title)
-      .toBe("T");
+    expect(result.current.context?.datasource).toBeNull();
   });
 });

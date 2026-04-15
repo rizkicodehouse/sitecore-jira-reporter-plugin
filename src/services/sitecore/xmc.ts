@@ -2,12 +2,6 @@ export const GET_ME_QUERY = `query Me {
   me { name email }
 }`;
 
-export const GET_ITEM_QUERY = `query Item($id: String!, $lang: String!) {
-  item(path: $id, language: $lang) {
-    fields(ownFields: true) { name value }
-  }
-}`;
-
 export type XmcClientOptions = {
   baseUrl: string;
   token: string;
@@ -17,9 +11,6 @@ export type XmcClientOptions = {
 export type XmcClient = {
   getCurrentUser: () =>
     Promise<{ name: string; email: string }>;
-  getDatasourceFields: (
-    itemId: string, language: string
-  ) => Promise<Record<string, string>>;
 };
 
 export function createXmcClient(
@@ -59,14 +50,6 @@ export function createXmcClient(
         me: { name: string; email: string };
       }>(GET_ME_QUERY);
       return data.me;
-    },
-    async getDatasourceFields(itemId, language) {
-      const data = await gql<{
-        item: { fields: Array<{ name: string; value: string }> };
-      }>(GET_ITEM_QUERY, { id: itemId, lang: language });
-      return Object.fromEntries(
-        data.item.fields.map((f) => [f.name, f.value])
-      );
     }
   };
 }

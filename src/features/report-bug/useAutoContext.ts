@@ -3,6 +3,7 @@ import {
   getPagesContext,
   parseRenderings
 } from "@/services/sitecore/context";
+import { buildAuthHeaders } from "@/lib/api-headers";
 import type { ReportContext } from "./types";
 
 export type UseAutoContextOpts = {
@@ -10,7 +11,6 @@ export type UseAutoContextOpts = {
   tenantId?: string;
   userEmail?: string;
   userName?: string;
-  datasourceItemId?: string;
   activeRenderingInstanceId?: string;
 };
 
@@ -34,18 +34,10 @@ export function useAutoContext(
       return () => { cancelled = true; };
     }
     (async () => {
-      const [pagesCtx, reporter, datasource] =
-        await Promise.all([
-          getPagesContext().catch(() => null),
-          fetchMe(opts),
-          opts.datasourceItemId
-            ? fetchDatasource(
-                opts,
-                opts.datasourceItemId,
-                "en"
-              )
-            : Promise.resolve(null)
-        ]);
+      const [pagesCtx, reporter] = await Promise.all([
+        getPagesContext().catch(() => null),
+        fetchMe(opts)
+      ]);
       if (cancelled) return;
       const pageInfo = pagesCtx?.pageInfo;
       const siteInfo = pagesCtx?.siteInfo;
@@ -85,11 +77,7 @@ export function useAutoContext(
           : null,
         rendering: active,
         renderings,
-        datasource: datasource
-          ? { itemId: opts.datasourceItemId!,
-              templateName: "",
-              fields: datasource }
-          : null,
+        datasource: null,
         reporter,
         browser: {
           userAgent:
@@ -107,7 +95,6 @@ export function useAutoContext(
     return () => { cancelled = true; };
   }, [
     opts.sdkToken,
-    opts.datasourceItemId,
     opts.activeRenderingInstanceId
   ]);
 
@@ -120,39 +107,12 @@ function deriveName(dataSource?: string): string {
   return last.trim() || dataSource;
 }
 
-function authHeaders(
-  opts: UseAutoContextOpts
-): Record<string, string> {
-  const h: Record<string, string> = {
-    "X-Sdk-Token": opts.sdkToken
-  };
-  if (opts.tenantId) h["X-Tenant-Id"] = opts.tenantId;
-  if (opts.userEmail) h["X-User-Email"] = opts.userEmail;
-  if (opts.userName) h["X-User-Name"] = opts.userName;
-  return h;
-}
-
 async function fetchMe(opts: UseAutoContextOpts) {
   const res = await fetch("/api/xmc/me", {
-    headers: authHeaders(opts)
+    headers: buildAuthHeaders(opts)
   });
   if (!res.ok) return null;
   return (await res.json()) as {
     name: string; email: string;
   };
-}
-
-async function fetchDatasource(
-  opts: UseAutoContextOpts,
-  itemId: string, language: string
-) {
-  const q = new URLSearchParams({ itemId, language });
-  const res = await fetch(`/api/xmc/datasource?${q}`, {
-    headers: authHeaders(opts)
-  });
-  if (!res.ok) return null;
-  const body = (await res.json()) as {
-    fields: Record<string, string>;
-  };
-  return body.fields;
 }

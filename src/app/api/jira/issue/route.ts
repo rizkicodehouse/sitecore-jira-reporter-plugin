@@ -25,7 +25,6 @@ const ContextSchema = z.object({
     placeholderKey: z.string().optional(),
     dataSource: z.string().optional()
   }).nullable().optional(),
-  renderings: z.array(z.unknown()).optional(),
   datasource: z.object({
     fields: z.record(z.string())
   }).nullable(),
@@ -115,7 +114,16 @@ export async function POST(req: Request) {
     browser: parsed.context.browser
   });
   type JiraFields = Record<string, unknown>;
+  // Client-supplied custom fields go FIRST so the
+  // server-controlled built-in fields (project, summary,
+  // issuetype, etc.) cannot be overwritten from the
+  // browser. Anything outside the customfield_* / known-
+  // safe namespace is dropped before merge.
+  const sanitizedCustom = sanitizeCustomFields(
+    parsed.customFields
+  );
   const fields: JiraFields = {
+    ...sanitizedCustom,
     project: { key: projectKey },
     issuetype: { name: issueType },
     summary: parsed.summary,
@@ -123,11 +131,7 @@ export async function POST(req: Request) {
     labels,
     ...(assignee
       ? { assignee: { accountId: assignee } }
-      : {}),
-    // Client-supplied custom fields (from the dynamic
-    // form built from JIRA createmeta). These win over
-    // our defaults if they collide.
-    ...(parsed.customFields ?? {})
+      : {})
   };
   const authHeader = basicAuthHeader(
     creds.serviceEmail, creds.apiToken
@@ -189,7 +193,7 @@ export async function POST(req: Request) {
       // Fallback: post the full description as a comment
       // on the new issue. Always allowed by JIRA.
       try {
-        await fetch(
+        await getJiraQueue().add(() => fetch(
           `${creds.baseUrl}/rest/api/3/issue/` +
           `${encodeURIComponent(created.key)}/comment`,
           {
@@ -200,8 +204,15 @@ export async function POST(req: Request) {
             },
             body: JSON.stringify({ body: description })
           }
-        );
-      } catch { /* non-fatal */ }
+        ));
+      } catch (e) {
+        if (process.env.NODE_ENV !== "production") {
+          console.warn(
+            "[jira-reporter] description-comment " +
+            "fallback failed", (e as Error).message
+          );
+        }
+      }
     }
     const boardId = settings?.defaultBoardId ?? null;
     let sprintAssigned = false;
@@ -222,8 +233,13 @@ export async function POST(req: Request) {
             created.key
           );
         }
-      } catch {
-        /* non-fatal: issue is created, just not in a sprint */
+      } catch (e) {
+        if (process.env.NODE_ENV !== "production") {
+          console.warn(
+            "[jira-reporter] sprint assignment failed",
+            (e as Error).message
+          );
+        }
       }
     }
     return NextResponse.json({
@@ -247,6 +263,28 @@ function respondError(
   }
 ) {
   return NextResponse.json({ error }, { status });
+}
+
+// Built-in JIRA fields the server controls. Anything in
+// this set must NOT be settable from the client custom-
+// fields payload (otherwise a malicious client could
+// switch projects, summary, etc.).
+const RESERVED_FIELDS = new Set([
+  "project", "issuetype", "summary", "description",
+  "labels", "assignee", "reporter", "attachment",
+  "comment"
+]);
+
+function sanitizeCustomFields(
+  raw: Record<string, unknown> | undefined
+): Record<string, unknown> {
+  if (!raw) return {};
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(raw)) {
+    if (RESERVED_FIELDS.has(k)) continue;
+    out[k] = v;
+  }
+  return out;
 }
 
 function readRejectedFields(body: unknown): string[] {

@@ -11,7 +11,6 @@ export type PublicSettings = {
   jiraServiceEmail: string;
   hasJiraApiToken: boolean;
   adminEmails: string[];
-  maxAttachmentMb?: number;
 };
 
 export type SettingsUpdate = {
@@ -24,11 +23,7 @@ export type SettingsUpdate = {
   jiraServiceEmail: string;
   jiraApiToken?: string;
   adminEmails: string[];
-  maxAttachmentMb?: number;
 };
-
-// Backwards compatibility alias for older imports.
-export type Settings = PublicSettings;
 
 export type SettingsViewProps = {
   load: () => Promise<PublicSettings>;
@@ -65,8 +60,7 @@ export const SettingsView: FC<SettingsViewProps> = (
       defaultBoardId: value!.defaultBoardId,
       jiraBaseUrl: value!.jiraBaseUrl,
       jiraServiceEmail: value!.jiraServiceEmail,
-      adminEmails: value!.adminEmails,
-      maxAttachmentMb: value!.maxAttachmentMb
+      adminEmails: value!.adminEmails
     };
     if (newToken.trim()) {
       update.jiraApiToken = newToken.trim();
