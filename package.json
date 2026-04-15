@@ -1,5 +1,5 @@
 {
-  "name": "@launcherdx/jira-reporter-plugin",
+  "name": "sitecore-jira-reporter-plugin",
   "version": "0.1.0",
   "private": true,
   "scripts": {
