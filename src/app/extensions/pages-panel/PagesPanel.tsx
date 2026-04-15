@@ -125,6 +125,9 @@ export const PagesPanel: FC<PagesPanelProps> = (
           )
       };
       initSitecoreContext(adapter);
+      if (!sdkTokenForTests) {
+        setSdkToken("stub-valid-embedded-dev");
+      }
       setSdkReady(true);
     })();
   }, [sdkTokenForTests]);
