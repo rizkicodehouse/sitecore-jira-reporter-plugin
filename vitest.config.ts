@@ -11,6 +11,12 @@ export default defineConfig({
     environment: "jsdom",
     globals: false,
     setupFiles: ["./src/test/setup.ts"],
+    exclude: [
+      "**/node_modules/**",
+      "**/dist/**",
+      "**/.next/**",
+      "tests/e2e/**"
+    ],
     coverage: {
       provider: "v8",
       thresholds: {
