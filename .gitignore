@@ -28,3 +28,8 @@ playwright-report/
 
 # Git worktrees
 .worktrees/
+/docs/images/*
+/docs/demo/*
+/docs/design/*
+/docs/research/*
+/docs/superpowers/*
