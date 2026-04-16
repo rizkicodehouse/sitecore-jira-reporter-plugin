@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { encryptSecret, decryptSecret } from "./crypto";
+import { selectDriver } from "./storage-guard";
 
 export const PublicSettingsSchema = z.object({
   projectKey: z.string().min(1),
@@ -182,8 +183,9 @@ const sg = globalThis as unknown as SingletonGlobals;
 
 export function getSettingsStore(): SettingsStore {
   if (!sg.__jiraPluginSettingsSingleton) {
-    const driver = process.env.UPSTASH_REDIS_REST_URL
-      ? "upstash" : "memory";
+    const driver = selectDriver({
+      source: "settings-store"
+    });
     sg.__jiraPluginSettingsSingleton = new SettingsStore({
       driver, cacheMs: 30_000
     });
