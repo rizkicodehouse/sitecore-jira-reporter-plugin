@@ -38,3 +38,93 @@ describe("XmcClient", () => {
       .rejects.toThrow();
   });
 });
+
+describe("createXmcClient — CRUD helpers", () => {
+  it("itemByPath returns null when GraphQL reports no item", async () => {
+    const mock = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({ data: { item: null } })
+    })) as unknown as typeof fetch;
+    const client = createXmcClient({
+      baseUrl: "https://xmc.example", token: "T", fetch: mock
+    });
+    const result = await client.itemByPath(
+      "/sitecore/content/Demo"
+    );
+    expect(result).toBeNull();
+  });
+
+  it("itemByPath returns normalised field map", async () => {
+    const mock = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        data: { item: {
+          itemId: "abc",
+          name: "Config",
+          path: "/p",
+          fields: { nodes: [
+            { name: "projectKey", value: "SJP" }
+          ] }
+        } }
+      })
+    })) as unknown as typeof fetch;
+    const client = createXmcClient({
+      baseUrl: "https://xmc.example", token: "T", fetch: mock
+    });
+    const result = await client.itemByPath("/p");
+    expect(result?.itemId).toBe("abc");
+    expect(result?.fields.projectKey).toBe("SJP");
+  });
+
+  it("createItem posts CREATE_ITEM_MUTATION", async () => {
+    const spy = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        data: { createItem: { item: {
+          itemId: "new", path: "/p/new",
+          fields: { nodes: [] }
+        } } }
+      })
+    })) as unknown as typeof fetch;
+    const client = createXmcClient({
+      baseUrl: "https://xmc.example", token: "T", fetch: spy
+    });
+    const out = await client.createItem({
+      name: "SJP-1",
+      parent: "/p",
+      templateId: "{tpl}",
+      language: "en",
+      fields: [{ name: "Ticket Key", value: "SJP-1" }]
+    });
+    expect(out.itemId).toBe("new");
+    expect(spy).toHaveBeenCalledOnce();
+  });
+
+  it("searchItems paginates via cursor", async () => {
+    const mock = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        data: { search: {
+          totalCount: 1,
+          pageInfo: { endCursor: "c1", hasNext: false },
+          results: [{ innerItem: {
+            itemId: "a", path: "/p/a",
+            fields: { nodes: [
+              { name: "Summary", value: "x" }
+            ] }
+          } }]
+        } }
+      })
+    })) as unknown as typeof fetch;
+    const client = createXmcClient({
+      baseUrl: "https://xmc.example", token: "T", fetch: mock
+    });
+    const page = await client.searchItems({
+      rootPath: "/sitecore/content/Demo/Data/Bug Reports",
+      templateId: "{bug-report-tpl}",
+      first: 50
+    });
+    expect(page.totalCount).toBe(1);
+    expect(page.items[0]?.fields.Summary).toBe("x");
+  });
+});

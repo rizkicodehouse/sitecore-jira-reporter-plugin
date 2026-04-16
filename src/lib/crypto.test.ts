@@ -4,7 +4,7 @@ import {
 import { randomBytes } from "node:crypto";
 import {
   encryptSecret, decryptSecret,
-  destroyTenantKey, resetCryptoForTests
+  deriveTenantDek, resetCryptoForTests
 } from "./crypto";
 
 describe("crypto — envelope encryption", () => {
@@ -76,16 +76,59 @@ describe("crypto — envelope encryption", () => {
     expect(await encryptSecret("", "t-1")).toBe("");
     expect(await decryptSecret("", "t-1")).toBe("");
   });
+});
 
-  it("destroyTenantKey shreds the tenant's DEK " +
-     "so existing ciphertext becomes unreadable",
-     async () => {
-    const ct = await encryptSecret("SECRET", "t-shred");
-    await destroyTenantKey("t-shred");
-    // After shred, a new DEK is generated on next call,
-    // so the old ciphertext can no longer be decrypted.
+describe("crypto — HKDF DEK derivation", () => {
+  const originalEnv = process.env.SETTINGS_ENCRYPTION_KEY;
+
+  beforeEach(() => {
+    resetCryptoForTests();
+    process.env.SETTINGS_ENCRYPTION_KEY =
+      Buffer.alloc(32, 7).toString("base64");
+  });
+
+  afterEach(() => {
+    if (originalEnv === undefined) {
+      delete process.env.SETTINGS_ENCRYPTION_KEY;
+    } else {
+      process.env.SETTINGS_ENCRYPTION_KEY = originalEnv;
+    }
+    resetCryptoForTests();
+  });
+
+  it("derives the same DEK for the same tenantId", async () => {
+    const a = await deriveTenantDek("tenant-1");
+    const b = await deriveTenantDek("tenant-1");
+    expect(a.equals(b)).toBe(true);
+    expect(a.length).toBe(32);
+  });
+
+  it("derives different DEKs for different tenantIds", async () => {
+    const a = await deriveTenantDek("tenant-1");
+    const b = await deriveTenantDek("tenant-2");
+    expect(a.equals(b)).toBe(false);
+  });
+
+  it("round-trips encryption with pure HKDF (no store)", async () => {
+    const ct = await encryptSecret("hello", "tenant-1");
+    const pt = await decryptSecret(ct, "tenant-1");
+    expect(pt).toBe("hello");
+  });
+
+  it("rejects ciphertext under a different tenantId", async () => {
+    const ct = await encryptSecret("hello", "tenant-1");
     await expect(
-      decryptSecret(ct, "t-shred")
+      decryptSecret(ct, "tenant-2")
     ).rejects.toThrow();
+  });
+
+  it("survives process restart (deterministic from env)", async () => {
+    const ct = await encryptSecret("hello", "tenant-1");
+    resetCryptoForTests();
+    // Same env var, so derivation produces the same DEK.
+    process.env.SETTINGS_ENCRYPTION_KEY =
+      Buffer.alloc(32, 7).toString("base64");
+    const pt = await decryptSecret(ct, "tenant-1");
+    expect(pt).toBe("hello");
   });
 });

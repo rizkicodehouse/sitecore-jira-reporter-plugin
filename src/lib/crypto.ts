@@ -1,4 +1,4 @@
-import { createCipheriv, createDecipheriv, randomBytes }
+import { createCipheriv, createDecipheriv, hkdfSync, randomBytes }
   from "node:crypto";
 
 const ALGO = "aes-256-gcm";
@@ -16,7 +16,6 @@ const KEY_BYTES = 32;
 type CryptoGlobals = {
   __jpCachedKek?: Buffer | null;
   __jpWarnedEphemeral?: boolean;
-  __jpDekMem?: Map<string, Buffer>;
   __jpDekCache?: Map<string, Buffer>;
 };
 const G = globalThis as unknown as CryptoGlobals;
@@ -56,112 +55,32 @@ async function resolveKek(): Promise<Buffer> {
 }
 
 // ─── DEK (data-encryption-key) per tenant ─────────────
-// Random 32 bytes per tenant. Wrapped by the KEK.
-// Stored in Redis when Upstash is configured, else in a
-// process-local Map (dev).
+// Derived deterministically from the KEK via HKDF-SHA-256
+// with tenantId as the salt. No persistence — every cold
+// start recomputes from env.
 
-type WrappedDek = { iv: string; tag: string; ct: string };
-
-const dekMem =
-  G.__jpDekMem ??
-  (G.__jpDekMem = new Map<string, Buffer>());
 const dekCache =
   G.__jpDekCache ??
   (G.__jpDekCache = new Map<string, Buffer>());
 
-function dekRedisKey(tenantId: string): string {
-  return `plugin:dek:${tenantId}`;
-}
+const HKDF_INFO = Buffer.from(
+  "sitecore-jira-reporter:dek:v1",
+  "utf8"
+);
 
-async function wrapDek(
-  kek: Buffer, dek: Buffer
-): Promise<WrappedDek> {
-  const iv = randomBytes(IV_BYTES);
-  const cipher = createCipheriv(ALGO, kek, iv);
-  const ct = Buffer.concat([
-    cipher.update(dek), cipher.final()
-  ]);
-  const tag = cipher.getAuthTag();
-  return {
-    iv: iv.toString("base64"),
-    tag: tag.toString("base64"),
-    ct: ct.toString("base64")
-  };
-}
-
-async function unwrapDek(
-  kek: Buffer, wrapped: WrappedDek
-): Promise<Buffer> {
-  const iv = Buffer.from(wrapped.iv, "base64");
-  const tag = Buffer.from(wrapped.tag, "base64");
-  const ct = Buffer.from(wrapped.ct, "base64");
-  const decipher = createDecipheriv(ALGO, kek, iv);
-  decipher.setAuthTag(tag);
-  return Buffer.concat([
-    decipher.update(ct), decipher.final()
-  ]);
-}
-
-async function readWrappedDekFromStore(
-  tenantId: string
-): Promise<WrappedDek | null> {
-  if (!process.env.UPSTASH_REDIS_REST_URL) return null;
-  try {
-    const { Redis } = await import("@upstash/redis");
-    const r = Redis.fromEnv();
-    const raw = await r.get<WrappedDek>(
-      dekRedisKey(tenantId)
-    );
-    if (!raw || !raw.iv || !raw.tag || !raw.ct) {
-      return null;
-    }
-    return raw;
-  } catch {
-    return null;
-  }
-}
-
-async function writeWrappedDekToStore(
-  tenantId: string, wrapped: WrappedDek
-): Promise<void> {
-  if (!process.env.UPSTASH_REDIS_REST_URL) return;
-  try {
-    const { Redis } = await import("@upstash/redis");
-    const r = Redis.fromEnv();
-    await r.set(dekRedisKey(tenantId), wrapped);
-  } catch {
-    /* best effort */
-  }
-}
-
-async function getOrCreateDek(
+export async function deriveTenantDek(
   tenantId: string
 ): Promise<Buffer> {
   assertTenantId(tenantId);
   const cached = dekCache.get(tenantId);
   if (cached) return cached;
-
   const kek = await resolveKek();
-  const wrapped = await readWrappedDekFromStore(tenantId);
-  if (wrapped) {
-    const dek = await unwrapDek(kek, wrapped);
-    dekCache.set(tenantId, dek);
-    return dek;
-  }
-
-  // Redis-less dev path: in-memory Map by tenantId
-  const memDek = dekMem.get(tenantId);
-  if (memDek) {
-    dekCache.set(tenantId, memDek);
-    return memDek;
-  }
-
-  const fresh = randomBytes(KEY_BYTES);
-  const freshWrapped = await wrapDek(kek, fresh);
-  await writeWrappedDekToStore(tenantId, freshWrapped);
-  dekMem.set(tenantId, fresh);
-  dekCache.set(tenantId, fresh);
-  return fresh;
+  const salt = Buffer.from(tenantId, "utf8");
+  const derived = Buffer.from(
+    hkdfSync("sha256", kek, salt, HKDF_INFO, KEY_BYTES)
+  );
+  dekCache.set(tenantId, derived);
+  return derived;
 }
 
 // ─── Public API ───────────────────────────────────────
@@ -170,7 +89,7 @@ export async function encryptSecret(
   plaintext: string, tenantId: string
 ): Promise<string> {
   if (!plaintext) return "";
-  const dek = await getOrCreateDek(tenantId);
+  const dek = await deriveTenantDek(tenantId);
   const iv = randomBytes(IV_BYTES);
   const cipher = createCipheriv(ALGO, dek, iv);
   const ct = Buffer.concat([
@@ -188,7 +107,7 @@ export async function decryptSecret(
   if (buf.length < IV_BYTES + AUTH_TAG_BYTES + 1) {
     throw new Error("encrypted blob is too short");
   }
-  const dek = await getOrCreateDek(tenantId);
+  const dek = await deriveTenantDek(tenantId);
   const iv = buf.subarray(0, IV_BYTES);
   const tag = buf.subarray(
     IV_BYTES, IV_BYTES + AUTH_TAG_BYTES
@@ -201,29 +120,20 @@ export async function decryptSecret(
   ]).toString("utf8");
 }
 
-// Crypto-shred: deletes the tenant's DEK so their
-// ciphertext becomes cryptographically unreadable. Use
-// on uninstall / tenant-offboarding.
+// Crypto-shred: clears the in-process cache for the tenant.
+// With HKDF derivation there is no stored DEK to delete.
+// True crypto-shred is performed by rotating
+// SETTINGS_ENCRYPTION_KEY (see §5.1 rotation runbook).
 export async function destroyTenantKey(
   tenantId: string
 ): Promise<void> {
   assertTenantId(tenantId);
   dekCache.delete(tenantId);
-  dekMem.delete(tenantId);
-  if (!process.env.UPSTASH_REDIS_REST_URL) return;
-  try {
-    const { Redis } = await import("@upstash/redis");
-    const r = Redis.fromEnv();
-    await r.del(dekRedisKey(tenantId));
-  } catch {
-    /* best effort */
-  }
 }
 
 export function resetCryptoForTests(): void {
   G.__jpCachedKek = null;
   G.__jpWarnedEphemeral = false;
-  dekMem.clear();
   dekCache.clear();
 }
 
