@@ -290,10 +290,10 @@ vercel --prod       # production deploy
 ```
 
 Vercel returns a URL like
-`https://launcherdx-jira-reporter.vercel.app`. Smoke-test it:
+`https://sitecore-jira-reporter-plugin.vercel.app`. Smoke-test it:
 
 ```bash
-curl https://launcherdx-jira-reporter.vercel.app/api/health
+curl https://sitecore-jira-reporter-plugin.vercel.app/api/health
 # expect: {"ok":true,"jiraConfigured":true,"settingsLoaded":true,...}
 ```
 
@@ -314,12 +314,12 @@ Once deployed to Vercel, register the plugin with Sitecore:
 
    - **Name:** JIRA Reporter
    - **Plugin Root URL:**
-     `https://launcherdx-jira-reporter.vercel.app`
+     `https://sitecore-jira-reporter-plugin.vercel.app`
    - **Extension Points:**
      - Pages Context Panel →
-       `https://launcherdx-jira-reporter.vercel.app/pages-panel`
+       `https://sitecore-jira-reporter-plugin.vercel.app/pages-panel`
      - Full Screen →
-       `https://launcherdx-jira-reporter.vercel.app/full-screen`
+       `https://sitecore-jira-reporter-plugin.vercel.app/full-screen`
    - **Permissions (SDK v0.3.x):**
      - `xmc.authoring.read` (datasource fields + user)
      - `pages.context.read`

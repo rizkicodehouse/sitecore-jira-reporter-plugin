@@ -52,7 +52,7 @@ Add to Vercel (all three scopes unless noted):
 | `AUTH0_CLIENT_SECRET` | (from Cloud Portal) | Per-plugin |
 | `AUTH0_AUDIENCE` | `https://api-webapp.sitecorecloud.io` | Fixed |
 | `AUTH0_SCOPE` | `openid profile email offline_access` | Fixed |
-| `APP_BASE_URL` | `https://<your-app>.vercel.app` | Must be HTTPS |
+| `APP_BASE_URL` | `https://sitecore-jira-reporter-plugin.vercel.app` | Must be HTTPS (Production scope) |
 
 Generate `AUTH0_SECRET`:
 

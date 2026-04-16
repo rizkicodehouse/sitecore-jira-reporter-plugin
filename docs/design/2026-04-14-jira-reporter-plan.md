@@ -4223,16 +4223,16 @@ git commit -am \
 ## Steps
 
 1. Deploy to Vercel production. Note the URL (e.g.
-   `https://jira-reporter.vercel.app`).
+   `https://sitecore-jira-reporter-plugin.vercel.app`).
 2. In Cloud Portal → Developer Studio → Register custom app:
    - App name: `JIRA Reporter`
    - Short description: "Report Page Builder bugs to JIRA."
    - Icon: upload `public/icon-256.png`
 3. For each extension point, add a route:
    - Pages Context Panel →
-     `https://jira-reporter.vercel.app/extensions/pages-panel`
+     `https://sitecore-jira-reporter-plugin.vercel.app/extensions/pages-panel`
    - Full Screen →
-     `https://jira-reporter.vercel.app/extensions/full-screen`
+     `https://sitecore-jira-reporter-plugin.vercel.app/extensions/full-screen`
 4. Permissions (SDK v0.3):
    - `xmc.authoring.read` (datasource fields + user)
    - `pages.context.read`
