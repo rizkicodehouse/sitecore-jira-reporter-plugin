@@ -12,5 +12,6 @@ export const auth0 = new Auth0Client({
       sameSite: "none",
       secure: true
     }
-  }
+  },
+  enableParallelTransactions: false
 });
