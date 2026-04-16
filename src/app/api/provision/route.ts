@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { verifySdkSession } from "@/lib/auth";
-import { createXmcClient } from "@/services/sitecore/xmc";
+import {
+  getXmcClient, isLocalXmcMode
+} from "@/services/sitecore/xmc-client-factory";
 import {
   provisionPluginSite
 } from "@/lib/sitecore-provision";
@@ -19,18 +21,36 @@ export async function POST(req: Request) {
   const token = req.headers.get("x-sc-auth-token") ?? "";
   const baseUrl =
     process.env.SITECORE_AUTHORING_BASE_URL ?? "";
-  if (!tenant || !site || !contextId || !token || !baseUrl) {
+
+  // In local/dev mode the mock XmcClient ignores contextId,
+  // token, and baseUrl — we only need tenant + site, and
+  // both fall back to the seed tree when the Marketplace
+  // SDK didn't forward headers.
+  const effectiveTenant = tenant ||
+    (isLocalXmcMode() ? "Demo" : "");
+  const effectiveSite = site ||
+    (isLocalXmcMode() ? "dev-site" : "");
+
+  if (!effectiveTenant || !effectiveSite) {
     return NextResponse.json(
       { error: "sitecore-context-missing" },
       { status: 400 }
     );
   }
+  if (!isLocalXmcMode() && (!contextId || !token || !baseUrl)) {
+    return NextResponse.json(
+      { error: "sitecore-context-missing" },
+      { status: 400 }
+    );
+  }
+
   try {
     await provisionPluginSite({
-      client: createXmcClient({
+      client: getXmcClient({
         baseUrl, token, sitecoreContextId: contextId
       }),
-      tenant, site
+      tenant: effectiveTenant,
+      site: effectiveSite
     });
     return NextResponse.json({ ok: true });
   } catch (e) {
