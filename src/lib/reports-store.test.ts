@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import {
   ReportsStore, ReportRecordSchema,
   resetReportsStoreForTests,
@@ -144,5 +144,56 @@ describe("ReportsStore (memory)", () => {
     await s.list("acme");
     expect(writes).toBe(1);
     expect(reads).toBe(1);
+  });
+});
+
+describe("ReportsStore — sitecore driver", () => {
+  const rec: ReportRecord = {
+    jiraKey: "SJP-1", jiraUrl: "u", summary: "s",
+    issueType: "Bug",
+    reporter: { email: "r@x", name: "R" },
+    page: null, rendering: null, datasourceId: null,
+    sprintAssigned: false,
+    createdAt: "2026-04-16T00:00:00Z"
+  };
+
+  it("append delegates to the Sitecore repo", async () => {
+    const repo = {
+      append: vi.fn(),
+      list: vi.fn()
+    };
+    const store = new ReportsStore({
+      driver: "sitecore",
+      maxRecords: 500,
+      sitecore: {
+        tenant: "T", site: "S",
+        getRepo: async () => repo
+      }
+    });
+    await store.append("T:S", rec);
+    expect(repo.append).toHaveBeenCalledWith("T", "S", rec);
+  });
+
+  it("list delegates and returns the page", async () => {
+    const repo = {
+      append: vi.fn(),
+      list: vi.fn(async () => ({
+        items: [rec], total: 1, offset: 0, limit: 50
+      }))
+    };
+    const store = new ReportsStore({
+      driver: "sitecore",
+      maxRecords: 500,
+      sitecore: {
+        tenant: "T", site: "S",
+        getRepo: async () => repo
+      }
+    });
+    const page = await store.list("T:S",
+      { offset: 0, limit: 50 });
+    expect(page.items).toHaveLength(1);
+    expect(repo.list).toHaveBeenCalledWith(
+      "T", "S", { offset: 0, limit: 50 }
+    );
   });
 });

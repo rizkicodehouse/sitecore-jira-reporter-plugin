@@ -1,5 +1,8 @@
 import { z } from "zod";
 import { selectDriver } from "./storage-guard";
+import type {
+  ReportsSitecoreRepo
+} from "./reports-sitecore-repo";
 
 export const ReportRecordSchema = z.object({
   jiraKey: z.string().min(1),
@@ -30,10 +33,15 @@ export const ReportRecordSchema = z.object({
 export type ReportRecord = z.infer<typeof ReportRecordSchema>;
 
 export type StoreOptions = {
-  driver: "memory" | "upstash";
+  driver: "memory" | "upstash" | "sitecore";
   maxRecords: number;
   onRead?: () => void;
   onWrite?: () => void;
+  sitecore?: {
+    tenant: string;
+    site: string;
+    getRepo: () => Promise<ReportsSitecoreRepo>;
+  };
 };
 
 export type ListPage = {
@@ -61,6 +69,15 @@ export class ReportsStore {
     assertTenantId(tenantId);
     const parsed = ReportRecordSchema.parse(record);
     this.opts.onWrite?.();
+    if (this.opts.driver === "sitecore") {
+      const cfg = this.opts.sitecore;
+      if (!cfg) throw new Error(
+        "reports-store: sitecore driver missing options"
+      );
+      const repo = await cfg.getRepo();
+      await repo.append(cfg.tenant, cfg.site, parsed);
+      return;
+    }
     if (this.opts.driver === "memory") {
       const list = this.mem.get(tenantId) ?? [];
       list.unshift(parsed);
@@ -85,6 +102,14 @@ export class ReportsStore {
   ): Promise<ListPage> {
     assertTenantId(tenantId);
     this.opts.onRead?.();
+    if (this.opts.driver === "sitecore") {
+      const cfg = this.opts.sitecore;
+      if (!cfg) throw new Error(
+        "reports-store: sitecore driver missing options"
+      );
+      const repo = await cfg.getRepo();
+      return repo.list(cfg.tenant, cfg.site, { offset, limit });
+    }
     if (this.opts.driver === "memory") {
       const list = this.mem.get(tenantId) ?? [];
       return {
@@ -151,6 +176,21 @@ export function getReportsStore(): ReportsStore {
     });
   }
   return sg.__jiraPluginReportsSingleton;
+}
+
+export function buildRequestReportsStore(args: {
+  tenant: string; site: string;
+  getRepo: () => Promise<ReportsSitecoreRepo>;
+  maxRecords?: number;
+}): ReportsStore {
+  return new ReportsStore({
+    driver: "sitecore",
+    maxRecords: args.maxRecords ?? 500,
+    sitecore: {
+      tenant: args.tenant, site: args.site,
+      getRepo: args.getRepo
+    }
+  });
 }
 
 export function resetReportsStoreForTests() {

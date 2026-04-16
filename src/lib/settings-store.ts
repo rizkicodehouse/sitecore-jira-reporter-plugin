@@ -1,6 +1,10 @@
 import { z } from "zod";
 import { encryptSecret, decryptSecret } from "./crypto";
 import { selectDriver } from "./storage-guard";
+import { isSitecoreDatastore } from "./datastore-mode";
+import type {
+  SettingsSitecoreRepo
+} from "./settings-sitecore-repo";
 
 export const PublicSettingsSchema = z.object({
   projectKey: z.string().min(1),
@@ -45,10 +49,15 @@ export const DEFAULT_SETTINGS: StoredSettings = {
 };
 
 export type StoreOptions = {
-  driver: "memory" | "upstash";
+  driver: "memory" | "upstash" | "sitecore";
   cacheMs: number;
   onRead?: () => void;
   onWrite?: () => void;
+  sitecore?: {
+    tenant: string;
+    site: string;
+    getRepo: () => Promise<SettingsSitecoreRepo>;
+  };
 };
 
 type CacheEntry = { value: StoredSettings; at: number };
@@ -81,11 +90,29 @@ export class SettingsStore {
       return cached.value;
     }
     this.opts.onRead?.();
-    const fresh = this.opts.driver === "memory"
-      ? this.mem.get(tenantId) ?? DEFAULT_SETTINGS
-      : await this.readKv(tenantId);
+    const fresh = await this.readByDriver(tenantId);
     this.cache.set(tenantId, { value: fresh, at: now });
     return fresh;
+  }
+
+  private async readByDriver(
+    tenantId: string
+  ): Promise<StoredSettings> {
+    if (this.opts.driver === "memory") {
+      return this.mem.get(tenantId) ?? DEFAULT_SETTINGS;
+    }
+    if (this.opts.driver === "sitecore") {
+      const cfg = this.opts.sitecore;
+      if (!cfg) {
+        throw new Error(
+          "settings-store: sitecore driver selected but " +
+          "sitecore options are missing"
+        );
+      }
+      const repo = await cfg.getRepo();
+      return repo.read(cfg.tenant, cfg.site);
+    }
+    return this.readKv(tenantId);
   }
 
   async getPublic(tenantId: string): Promise<PublicSettings> {
@@ -117,15 +144,33 @@ export class SettingsStore {
       jiraApiTokenEnc: nextToken
     };
     this.opts.onWrite?.();
-    if (this.opts.driver === "memory") {
-      this.mem.set(tenantId, stored);
-    } else {
-      await this.writeKv(tenantId, stored);
-    }
+    await this.writeByDriver(tenantId, stored);
     this.cache.set(tenantId, {
       value: stored, at: Date.now()
     });
     return toPublic(stored);
+  }
+
+  private async writeByDriver(
+    tenantId: string, value: StoredSettings
+  ): Promise<void> {
+    if (this.opts.driver === "memory") {
+      this.mem.set(tenantId, value);
+      return;
+    }
+    if (this.opts.driver === "sitecore") {
+      const cfg = this.opts.sitecore;
+      if (!cfg) {
+        throw new Error(
+          "settings-store: sitecore driver selected but " +
+          "sitecore options are missing"
+        );
+      }
+      const repo = await cfg.getRepo();
+      await repo.write(cfg.tenant, cfg.site, value);
+      return;
+    }
+    await this.writeKv(tenantId, value);
   }
 
   private keyOf(tenantId: string): string {
@@ -183,6 +228,17 @@ const sg = globalThis as unknown as SingletonGlobals;
 
 export function getSettingsStore(): SettingsStore {
   if (!sg.__jiraPluginSettingsSingleton) {
+    if (isSitecoreDatastore()) {
+      sg.__jiraPluginSettingsSingleton = new SettingsStore({
+        driver: "sitecore",
+        cacheMs: 30_000,
+        // tenant/site/repo are supplied per-request
+        // (see src/app/api/settings/route.ts) because the
+        // singleton can't know the site context at boot.
+        sitecore: undefined
+      });
+      return sg.__jiraPluginSettingsSingleton;
+    }
     const driver = selectDriver({
       source: "settings-store"
     });
@@ -191,6 +247,22 @@ export function getSettingsStore(): SettingsStore {
     });
   }
   return sg.__jiraPluginSettingsSingleton;
+}
+
+export function buildRequestSettingsStore(args: {
+  tenant: string;
+  site: string;
+  getRepo: () => Promise<SettingsSitecoreRepo>;
+  cacheMs?: number;
+}): SettingsStore {
+  return new SettingsStore({
+    driver: "sitecore",
+    cacheMs: args.cacheMs ?? 0,
+    sitecore: {
+      tenant: args.tenant, site: args.site,
+      getRepo: args.getRepo
+    }
+  });
 }
 
 export function resetSettingsStoreForTests() {

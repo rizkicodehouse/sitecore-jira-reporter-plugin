@@ -3,8 +3,16 @@ import {
   verifySdkSession, isAdminEmail, getTenantId
 } from "@/lib/auth";
 import {
-  getSettingsStore, SettingsUpdateSchema
+  buildRequestSettingsStore,
+  getSettingsStore,
+  SettingsStore,
+  SettingsUpdateSchema
 } from "@/lib/settings-store";
+import { isSitecoreDatastore } from "@/lib/datastore-mode";
+import { createXmcClient } from "@/services/sitecore/xmc";
+import {
+  createSettingsSitecoreRepo
+} from "@/lib/settings-sitecore-repo";
 import {
   resolveJiraUserByEmail,
   looksLikeAccountId,
@@ -12,12 +20,42 @@ import {
   JiraUserLookupError
 } from "@/lib/jira-user-search";
 
+function resolveSettingsStore(req: Request): SettingsStore {
+  if (!isSitecoreDatastore()) return getSettingsStore();
+  const tenant = req.headers.get("x-sc-tenant") ?? "";
+  const site = req.headers.get("x-sc-site") ?? "";
+  const contextId =
+    req.headers.get("x-sc-context-id") ?? "";
+  const token = req.headers.get("x-sc-auth-token") ?? "";
+  const baseUrl =
+    process.env.SITECORE_AUTHORING_BASE_URL ?? "";
+  if (!tenant || !site || !contextId || !token || !baseUrl) {
+    throw new Error("sitecore-context-missing");
+  }
+  return buildRequestSettingsStore({
+    tenant, site,
+    getRepo: async () => createSettingsSitecoreRepo({
+      client: createXmcClient({
+        baseUrl, token, sitecoreContextId: contextId
+      })
+    })
+  });
+}
+
+function resolveTenantId(req: Request): string | null {
+  if (isSitecoreDatastore()) {
+    const scTenant = req.headers.get("x-sc-tenant");
+    if (scTenant) return scTenant;
+  }
+  return getTenantId(req);
+}
+
 export async function GET(req: Request) {
   const s = await verifySdkSession(req);
   if (!s.ok) return json401();
-  const tenantId = getTenantId(req);
+  const tenantId = resolveTenantId(req);
   if (!tenantId) return json400("tenant-missing");
-  const settings = await getSettingsStore()
+  const settings = await resolveSettingsStore(req)
     .getPublic(tenantId);
   return NextResponse.json(settings);
 }
@@ -25,9 +63,10 @@ export async function GET(req: Request) {
 export async function PUT(req: Request) {
   const s = await verifySdkSession(req);
   if (!s.ok) return json401();
-  const tenantId = getTenantId(req);
+  const tenantId = resolveTenantId(req);
   if (!tenantId) return json400("tenant-missing");
-  const current = await getSettingsStore().get(tenantId);
+  const store = resolveSettingsStore(req);
+  const current = await store.get(tenantId);
   const isBootstrap = current.adminEmails.length === 0;
   if (!isBootstrap &&
       !isAdminEmail(s.session.email, current.adminEmails)) {
@@ -59,8 +98,7 @@ export async function PUT(req: Request) {
     const effectiveToken =
       update.jiraApiToken
       || (current.jiraApiTokenEnc
-            ? await getSettingsStore()
-                .getDecryptedApiToken(tenantId)
+            ? await store.getDecryptedApiToken(tenantId)
             : "");
     try {
       const user = await resolveJiraUserByEmail(
@@ -93,8 +131,7 @@ export async function PUT(req: Request) {
     update.defaultAssigneeAccountId = null;
   }
   try {
-    const saved = await getSettingsStore()
-      .put(tenantId, update);
+    const saved = await store.put(tenantId, update);
     return NextResponse.json(saved);
   } catch (e) {
     return NextResponse.json(

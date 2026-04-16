@@ -2,7 +2,9 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { verifySdkSession, getTenantId } from "@/lib/auth";
 import { getSettingsStore } from "@/lib/settings-store";
-import { getReportsStore } from "@/lib/reports-store";
+import {
+  resolveReportsStore
+} from "@/app/api/_lib/resolve-reports-store";
 import { getJiraQueue } from "@/lib/rate-limit";
 import { mapJiraError } from "@/lib/jira-errors";
 import { buildDescription } from "@/lib/adf";
@@ -246,7 +248,7 @@ export async function POST(req: Request) {
     const jiraUrl = `${creds.baseUrl}/browse/${created.key}`;
     if (tenantId) {
       try {
-        await getReportsStore().append(tenantId, {
+        await resolveReportsStore(req).append(tenantId, {
           jiraKey: created.key,
           jiraUrl,
           summary: parsed.summary,

@@ -1,6 +1,6 @@
 // src/lib/settings-store.test.ts
 import {
-  describe, it, expect, beforeEach, beforeAll
+  describe, it, expect, beforeEach, beforeAll, vi
 } from "vitest";
 import { randomBytes } from "node:crypto";
 import {
@@ -118,5 +118,58 @@ describe("SettingsStore (in-memory driver)", () => {
     await new Promise((r) => setTimeout(r, 25));
     await s.get("acme");
     expect(driver.reads).toBe(2);
+  });
+});
+
+describe("SettingsStore — sitecore driver", () => {
+  it("delegates reads to the Sitecore repo", async () => {
+    const repo = {
+      exists: vi.fn(async () => true),
+      read: vi.fn(async () => DEFAULT_SETTINGS),
+      write: vi.fn()
+    };
+    const store = new SettingsStore({
+      driver: "sitecore",
+      cacheMs: 0,
+      sitecore: {
+        tenant: "T", site: "S",
+        getRepo: async () => repo
+      }
+    });
+    const out = await store.get("T:S");
+    expect(out).toEqual(DEFAULT_SETTINGS);
+    expect(repo.read).toHaveBeenCalledWith("T", "S");
+  });
+
+  it("delegates writes to the Sitecore repo", async () => {
+    const repo = {
+      exists: vi.fn(async () => true),
+      read: vi.fn(async () => DEFAULT_SETTINGS),
+      write: vi.fn()
+    };
+    const store = new SettingsStore({
+      driver: "sitecore",
+      cacheMs: 0,
+      sitecore: {
+        tenant: "T", site: "S",
+        getRepo: async () => repo
+      }
+    });
+    await store.put("T:S", {
+      projectKey: "SJP",
+      defaultIssueType: "Bug",
+      defaultLabels: ["page-builder"],
+      defaultAssigneeAccountId: null,
+      defaultBoardId: null,
+      jiraBaseUrl: "",
+      jiraServiceEmail: "",
+      adminEmails: []
+    });
+    expect(repo.write).toHaveBeenCalledOnce();
+    const call = repo.write.mock.calls[0]!;
+    const [tenant, site, stored] = call;
+    expect(tenant).toBe("T");
+    expect(site).toBe("S");
+    expect(stored.projectKey).toBe("SJP");
   });
 });

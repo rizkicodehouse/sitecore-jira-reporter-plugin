@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { verifySdkSession, getTenantId } from "@/lib/auth";
-import { getReportsStore } from "@/lib/reports-store";
+import {
+  resolveReportsStore
+} from "@/app/api/_lib/resolve-reports-store";
 
 const MAX_LIMIT = 100;
 
@@ -33,7 +35,7 @@ export async function GET(req: Request) {
   const limit = clampInt(url.searchParams.get("limit"),
     50, 1, MAX_LIMIT);
   try {
-    const page = await getReportsStore()
+    const page = await resolveReportsStore(req)
       .list(tenantId, { offset, limit });
     return NextResponse.json(page);
   } catch (e) {
