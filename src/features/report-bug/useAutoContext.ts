@@ -4,7 +4,7 @@ import {
   parseRenderings
 } from "@/services/sitecore/context";
 import { buildAuthHeaders } from "@/lib/api-headers";
-import type { ReportContext } from "./types";
+import type { ReportContext, RenderingMeta } from "./types";
 
 export type UseAutoContextOpts = {
   sdkToken: string;
@@ -33,12 +33,22 @@ export function useAutoContext(
       setState({ loading: true, context: null, error: null });
       return () => { cancelled = true; };
     }
+    const hasHostUser =
+      Boolean(opts.userEmail) || Boolean(opts.userName);
     (async () => {
-      const [pagesCtx, reporter] = await Promise.all([
+      const [pagesCtx, fetchedReporter] = await Promise.all([
         getPagesContext().catch(() => null),
-        fetchMe(opts)
+        hasHostUser
+          ? Promise.resolve(null)
+          : fetchMe(opts)
       ]);
       if (cancelled) return;
+      const reporter = hasHostUser
+        ? {
+            name: opts.userName ?? "",
+            email: opts.userEmail ?? ""
+          }
+        : fetchedReporter;
       const pageInfo = pagesCtx?.pageInfo;
       const siteInfo = pagesCtx?.siteInfo;
       const allRenderings = parseRenderings(
@@ -77,7 +87,7 @@ export function useAutoContext(
           : null,
         rendering: active,
         renderings,
-        datasource: null,
+        datasource: datasourceFromRendering(active),
         reporter,
         browser: {
           userAgent:
@@ -95,10 +105,21 @@ export function useAutoContext(
     return () => { cancelled = true; };
   }, [
     opts.sdkToken,
-    opts.activeRenderingInstanceId
+    opts.activeRenderingInstanceId,
+    opts.userEmail,
+    opts.userName
   ]);
 
   return state;
+}
+
+export function datasourceFromRendering(
+  r: Pick<RenderingMeta, "name" | "dataSource"> | null
+): ReportContext["datasource"] {
+  if (!r?.dataSource) return null;
+  const fields: Record<string, string> = { path: r.dataSource };
+  if (r.name) fields.name = r.name;
+  return { itemId: "", templateName: "", fields };
 }
 
 function deriveName(dataSource?: string): string {

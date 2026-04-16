@@ -1,6 +1,7 @@
 "use client";
 import { FC, useEffect, useState } from "react";
 import type { ReportContext } from "./types";
+import { datasourceFromRendering } from "./useAutoContext";
 import type {
   NormalizedField
 } from "@/lib/jira-create-meta";
@@ -116,7 +117,8 @@ export const ReportBugDialog: FC<ReportBugDialogProps> = (
           ) ?? null;
     const scopedContext: ReportContext = {
       ...context,
-      rendering: chosen
+      rendering: chosen,
+      datasource: datasourceFromRendering(chosen)
     };
     try {
       const customFields = buildCustomFieldsPayload(

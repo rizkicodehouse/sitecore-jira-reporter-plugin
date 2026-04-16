@@ -61,6 +61,35 @@ describe("useAutoContext", () => {
       .toBe("r");
     expect(result.current.context?.renderings.length)
       .toBe(1);
+    expect(result.current.context?.datasource?.fields.path)
+      .toBe("Hero");
+  });
+
+  it("prefers host-user identity for reporter", async () => {
+    const { result } = renderHook(() =>
+      useAutoContext({
+        sdkToken: "stub-valid",
+        userEmail: "rsa@codehousegroup.com",
+        userName: "Rizki Satria"
+      })
+    );
+    await waitFor(() =>
+      expect(result.current.loading).toBe(false)
+    );
+    expect(result.current.context?.reporter).toEqual({
+      name: "Rizki Satria",
+      email: "rsa@codehousegroup.com"
+    });
+  });
+
+  it("leaves datasource null when no rendering active",
+     async () => {
+    const { result } = renderHook(() =>
+      useAutoContext({ sdkToken: "stub-valid" })
+    );
+    await waitFor(() =>
+      expect(result.current.loading).toBe(false)
+    );
     expect(result.current.context?.datasource).toBeNull();
   });
 });
