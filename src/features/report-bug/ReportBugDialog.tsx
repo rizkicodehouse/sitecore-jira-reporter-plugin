@@ -188,7 +188,7 @@ export const ReportBugDialog: FC<ReportBugDialogProps> = (
     <div role="dialog" aria-label="Report bug"
          className="p-4 flex flex-col gap-3">
       {err && (
-        <Alert variant="destructive">
+        <Alert variant="danger">
           <AlertDescription className="flex items-center justify-between">
             <span>{err}</span>
             <Button variant="link" size="xs" onClick={doSubmit}>Retry</Button>
