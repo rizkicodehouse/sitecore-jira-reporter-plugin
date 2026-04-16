@@ -30,6 +30,8 @@ export type PagesPanelProps = {
   skipAuthForTests?: boolean;
 };
 
+type SessionState = "unknown" | "authenticated" | "needs-login";
+
 export const PagesPanel: FC<PagesPanelProps> = (
   { skipAuthForTests }
 ) => {
@@ -42,6 +44,11 @@ export const PagesPanel: FC<PagesPanelProps> = (
   const [tenantId, setTenantId] = useState<string>("");
   const [userEmail, setUserEmail] = useState<string>("");
   const [userName, setUserName] = useState<string>("");
+  const [sessionState, setSessionState] =
+    useState<SessionState>(
+      skipAuthForTests ? "authenticated" : "unknown"
+    );
+  const [authPolling, setAuthPolling] = useState(false);
 
   useEffect(() => {
     if (skipAuthForTests) return;
@@ -52,7 +59,23 @@ export const PagesPanel: FC<PagesPanelProps> = (
           credentials: "include"
         });
         if (cancelled) return;
+        if (res.ok) {
+          setSessionState("authenticated");
+          return;
+        }
         if (res.status === 401) {
+          const isEmbedded =
+            typeof window !== "undefined" &&
+            window.parent !== window;
+          if (isEmbedded) {
+            // In a cross-site iframe we cannot navigate the
+            // top frame (blocked) and a same-frame redirect
+            // to Auth0 would fail on third-party cookies.
+            // Defer to a user-click that opens the flow in
+            // a new tab, then poll until the session lands.
+            setSessionState("needs-login");
+            return;
+          }
           const returnTo = encodeURIComponent(
             window.location.pathname + window.location.search
           );
@@ -63,6 +86,28 @@ export const PagesPanel: FC<PagesPanelProps> = (
     })();
     return () => { cancelled = true; };
   }, [skipAuthForTests]);
+
+  useEffect(() => {
+    if (!authPolling) return;
+    let cancelled = false;
+    const tick = async () => {
+      try {
+        const res = await fetch("/api/xmc/me", {
+          credentials: "include"
+        });
+        if (cancelled) return;
+        if (res.ok) {
+          setSessionState("authenticated");
+          setAuthPolling(false);
+        }
+      } catch { /* keep polling */ }
+    };
+    const id = setInterval(tick, 2000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, [authPolling]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -262,7 +307,49 @@ export const PagesPanel: FC<PagesPanelProps> = (
     } catch { return {}; }
   }
 
-  if (!sdkReady) {
+  if (sessionState === "needs-login") {
+    return (
+      <PanelShell ariaLabel="Bug Reporter for Jira sign in">
+        <div className="flex flex-col gap-3 p-5">
+          <span className="inline-flex w-fit items-center gap-2 rounded-full border border-primary-200 bg-white/70 px-2.5 py-0.5 text-2xs font-semibold uppercase tracking-[0.18em] text-primary-700 backdrop-blur">
+            <span className="h-1.5 w-1.5 rounded-full bg-primary-500" />
+            Sign-in required
+          </span>
+          <h2 className="text-base font-semibold tracking-tight text-gray-900">
+            Sign in to{" "}
+            <span className="bg-gradient-to-r from-primary-600 via-pink-500 to-cyan-500 bg-clip-text text-transparent">
+              Bug Reporter
+            </span>
+          </h2>
+          <p className="text-xs leading-relaxed text-gray-600">
+            Opens your Sitecore login in a new tab. This
+            panel refreshes automatically once your session
+            is ready.
+          </p>
+          <a
+            href="/api/auth/login?returnTo=/auth-complete"
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={() => setAuthPolling(true)}
+            className="inline-flex items-center justify-center rounded-lg bg-gradient-to-r from-primary-500 via-pink-500 to-cyan-500 px-4 py-2 text-sm font-semibold text-white shadow-[0_10px_30px_-12px_rgba(110,63,255,0.5)] transition hover:opacity-95"
+          >
+            Sign in with Sitecore
+          </a>
+          {authPolling && (
+            <div
+              role="status"
+              className="flex items-center gap-2 text-2xs text-gray-500"
+            >
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary-500" />
+              Waiting for sign-in…
+            </div>
+          )}
+        </div>
+      </PanelShell>
+    );
+  }
+
+  if (!sdkReady || sessionState === "unknown") {
     return (
       <PanelShell ariaLabel="Bug Reporter for Jira panel">
         <div className="flex items-center justify-center gap-2 p-6">
