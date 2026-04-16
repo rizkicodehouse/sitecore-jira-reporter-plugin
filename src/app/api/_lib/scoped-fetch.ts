@@ -9,7 +9,12 @@ export type ScopedFetchArgs = {
 export function createScopedFetch(
   args: ScopedFetchArgs
 ): typeof fetch {
-  const impl = args.fetchImpl ?? fetch;
+  // When no override is provided, call `fetch` through an
+  // arrow wrapper. Invoking native fetch through a bare
+  // variable strips the `this`-to-window binding the
+  // browser requires ("Illegal invocation").
+  const impl: typeof fetch = args.fetchImpl ??
+    ((input, init) => fetch(input, init));
   return (async (
     input: RequestInfo | URL,
     init?: RequestInit

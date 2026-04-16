@@ -8,7 +8,14 @@ export function useScopedFetch(
   ctx: SdkContext | null
 ): typeof fetch {
   return useMemo(() => {
-    if (!ctx) return fetch;
+    if (!ctx) {
+      // Wrap the native fetch in an arrow so callers can
+      // invoke it through a variable without the browser
+      // throwing "Illegal invocation" (native fetch must
+      // be bound to globalThis/window).
+      return ((input: RequestInfo | URL, init?: RequestInit) =>
+        fetch(input, init)) as typeof fetch;
+    }
     return createScopedFetch(ctx);
   }, [ctx]);
 }
