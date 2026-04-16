@@ -5,7 +5,7 @@ export default function Home() {
         JIRA Reporter Plugin
       </h1>
       <p>Registration landing. Extension routes live at
-         /extensions/*.</p>
+         /pages-panel and /full-screen.</p>
     </main>
   );
 }

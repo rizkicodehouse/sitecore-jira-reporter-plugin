@@ -23,7 +23,7 @@ Vercel with Upstash Redis as the multi-tenant settings store.
 
 | Variable | Required | Purpose |
 |----------|----------|---------|
-| `ALLOWED_PLUGIN_ORIGIN` | Yes | CORS + `frame-ancestors` origin |
+| `ALLOWED_PLUGIN_ORIGIN` | Yes | Space-separated Sitecore host origins for CSP + CORS |
 | `AUTH0_SECRET` | Yes | Cookie signing key (32 random bytes, base64) |
 | `AUTH0_DOMAIN` | Yes | `https://auth.sitecorecloud.io` |
 | `AUTH0_CLIENT_ID` | Yes | From Cloud Portal credentials dialog |
@@ -106,7 +106,9 @@ Copy the output.
 Project → Settings → Environment Variables. Add each for all
 three scopes (Production, Preview, Development):
 
-- `ALLOWED_PLUGIN_ORIGIN` = `https://pages.sitecorecloud.io`
+- `ALLOWED_PLUGIN_ORIGIN` = `https://pages.sitecorecloud.io https://app.sitecorecloud.io`
+  (space-separated — `pages` hosts the context panel iframe,
+  `app` hosts the full-screen iframe from XMC Portfolio)
 - `SETTINGS_ENCRYPTION_KEY` = (paste key from step 4)
 - `PLUGIN_ADMIN_EMAILS` = (optional, comma-separated)
 - `AUTH0_SECRET` = (generate separately — 32 random bytes
@@ -142,11 +144,13 @@ Give the production URL to whoever manages the Sitecore Cloud
 Portal marketplace registration. See
 [marketplace-registration.md](./marketplace-registration.md).
 
-### Update CORS origin if needed
+### Update CORS / frame-ancestors origins if needed
 
-If Sitecore Pages iframes the plugin from a different origin
-than `https://pages.sitecorecloud.io`, update
-`ALLOWED_PLUGIN_ORIGIN` in Vercel and redeploy.
+If Sitecore iframes the plugin from origins other than the
+two above, append them (space-separated) to
+`ALLOWED_PLUGIN_ORIGIN` in Vercel and redeploy. Verify the
+actual ancestor origin from devtools:
+`window.top.location.origin` inside the iframe.
 
 ## Operations
 
@@ -203,8 +207,43 @@ and update the env vars.
 
 ### JIRA tokens fail to decrypt after redeploy
 
-`SETTINGS_ENCRYPTION_KEY` changed between deploys. Restore
-the previous key or have tenants re-enter their tokens.
+Symptom: API routes that decrypt JIRA creds (e.g.
+`/api/jira/create-meta`, `/api/jira/issue`, `/api/settings`)
+return 500 with the Node crypto error
+`Unsupported state or unable to authenticate data` in Vercel
+function logs.
+
+Root cause: the current `SETTINGS_ENCRYPTION_KEY` (the KEK)
+cannot unwrap the per-tenant DEK stored in Redis at
+`plugin:dek:{tenantId}`. Common triggers:
+
+- The env var was unset on the first deploy, so an ephemeral
+  KEK wrapped the DEK; a later deploy set a real key, which
+  does not match.
+- The env var value was rotated without re-wrapping DEKs.
+- Upstash database was restored from a backup taken under a
+  different key.
+
+Remediation (pick one):
+
+1. Restore the original KEK. If you still have it, set
+   `SETTINGS_ENCRYPTION_KEY` back to that value, redeploy.
+2. Reset the tenant's encryption. From an Upstash console or
+   a scripted redis client:
+
+   ```bash
+   DEL plugin:dek:{tenantId}
+   DEL plugin:settings:{tenantId}
+   ```
+
+   Then have that tenant re-enter their JIRA API token via
+   the Settings UI. A new DEK will be generated and wrapped
+   with the current KEK.
+
+Prevent recurrence by setting `SETTINGS_ENCRYPTION_KEY`
+explicitly on the first production deploy (before any tenant
+saves settings) and not rotating it without a re-wrap
+migration.
 
 ## Alternative persistence backends
 

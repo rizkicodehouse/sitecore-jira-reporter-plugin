@@ -245,7 +245,7 @@ export default function Home() {
         JIRA Reporter Plugin
       </h1>
       <p>Registration landing. Extension routes live at
-         /extensions/*.</p>
+         /pages-panel and /full-screen.</p>
     </main>
   );
 }
@@ -3468,19 +3468,19 @@ git commit -am \
 
 ## Phase 5 — Extension entries
 
-### Task 23: `/extensions/pages-panel` — primary entry
+### Task 23: `/pages-panel` — primary entry
 
 **Files:**
 
-- Create: `src/app/extensions/pages-panel/page.tsx`
-- Create: `src/app/extensions/pages-panel/PagesPanel.tsx`
-- Test: `src/app/extensions/pages-panel/PagesPanel.test.tsx`
+- Create: `src/app/pages-panel/page.tsx`
+- Create: `src/app/pages-panel/PagesPanel.tsx`
+- Test: `src/app/pages-panel/PagesPanel.test.tsx`
 
 - [ ] **Step 1: Write the failing test** (for the
 shell component, which ties everything together)
 
 ```tsx
-// src/app/extensions/pages-panel/PagesPanel.test.tsx
+// src/app/pages-panel/PagesPanel.test.tsx
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -3712,7 +3712,7 @@ export const PagesPanel: FC<PagesPanelProps> = (
 ```
 
 - [ ] **Step 3: Create thin route shell
-`src/app/extensions/pages-panel/page.tsx`**
+`src/app/pages-panel/page.tsx`**
 
 ```tsx
 import { PagesPanel } from "./PagesPanel";
@@ -3722,7 +3722,7 @@ export default function Page() { return <PagesPanel />; }
 - [ ] **Step 4: Run test — expect pass**
 
 ```bash
-npx vitest run src/app/extensions/pages-panel
+npx vitest run src/app/pages-panel
 ```
 
 - [ ] **Step 5: Commit**
@@ -3734,16 +3734,16 @@ git commit -am \
 
 ---
 
-### Task 24: `/extensions/full-screen` — portability harness
+### Task 24: `/full-screen` — portability harness
 
 **Files:**
 
-- Create: `src/app/extensions/full-screen/page.tsx`
+- Create: `src/app/full-screen/page.tsx`
 
 - [ ] **Step 1: Implement the empty portability harness**
 
 ```tsx
-// src/app/extensions/full-screen/page.tsx
+// src/app/full-screen/page.tsx
 import { PagesPanel } from "../pages-panel/PagesPanel";
 export default function FullScreen() {
   return (
@@ -3813,7 +3813,7 @@ export default defineConfig({
 <body>
   <h1>Dev host shell</h1>
   <iframe id="plugin"
-    src="http://localhost:3002/extensions/pages-panel"
+    src="http://localhost:3002/pages-panel"
     style="width: 420px; height: 600px; border: 1px solid #ccc;">
   </iframe>
   <script>
@@ -3905,7 +3905,7 @@ test("happy path — submit with capture", async ({ page }) => {
     })
   );
 
-  await page.goto("/extensions/pages-panel");
+  await page.goto("/pages-panel");
   await page.evaluate(() => {
     window.postMessage({
       topic: "pages.layout",
@@ -3975,7 +3975,7 @@ test("upload fallback when capture declined", async (
       body: JSON.stringify([{ id: "att-9" }])
     }));
 
-  await page.goto("/extensions/pages-panel");
+  await page.goto("/pages-panel");
   await page.evaluate(() => {
     window.postMessage({
       topic: "pages.layout",
@@ -4040,7 +4040,7 @@ test("rate-limit banner + retry", async ({ page }) => {
     });
   });
 
-  await page.goto("/extensions/pages-panel");
+  await page.goto("/pages-panel");
   await page.evaluate(() => {
     window.postMessage({
       topic: "pages.layout",
@@ -4131,7 +4131,7 @@ KV (optional — falls back to in-memory if unset):
 2. After production deploy, register the plugin in Sitecore
    Cloud Portal → Developer Studio → Register App →
    Pages Context Panel, URL =
-   `https://<vercel-deploy>/extensions/pages-panel`.
+   `https://<vercel-deploy>/pages-panel`.
 
 ## Architecture
 
@@ -4217,8 +4217,8 @@ git commit -am \
 
 | Type | Route |
 |---|---|
-| Pages Context Panel | `/extensions/pages-panel` |
-| Full Screen | `/extensions/full-screen` |
+| Pages Context Panel | `/pages-panel` |
+| Full Screen | `/full-screen` |
 
 ## Steps
 
@@ -4230,9 +4230,9 @@ git commit -am \
    - Icon: upload `public/icon-256.png`
 3. For each extension point, add a route:
    - Pages Context Panel →
-     `https://sitecore-jira-reporter-plugin.vercel.app/extensions/pages-panel`
+     `https://sitecore-jira-reporter-plugin.vercel.app/pages-panel`
    - Full Screen →
-     `https://sitecore-jira-reporter-plugin.vercel.app/extensions/full-screen`
+     `https://sitecore-jira-reporter-plugin.vercel.app/full-screen`
 4. Permissions (SDK v0.3):
    - `xmc.authoring.read` (datasource fields + user)
    - `pages.context.read`

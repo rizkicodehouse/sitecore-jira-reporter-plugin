@@ -4,8 +4,8 @@
 
 | Type | Route |
 |---|---|
-| Pages Context Panel | `/extensions/pages-panel` |
-| Full Screen | `/extensions/full-screen` |
+| Pages Context Panel | `/pages-panel` |
+| Full Screen | `/full-screen` |
 
 ## Steps
 
@@ -17,9 +17,9 @@
    - Icon: upload `public/icon-256.png`
 3. For each extension point, add a route:
    - Pages Context Panel →
-     `https://sitecore-jira-reporter-plugin.vercel.app/extensions/pages-panel`
+     `https://sitecore-jira-reporter-plugin.vercel.app/pages-panel`
    - Full Screen →
-     `https://sitecore-jira-reporter-plugin.vercel.app/extensions/full-screen`
+     `https://sitecore-jira-reporter-plugin.vercel.app/full-screen`
 4. Permissions (SDK v0.3):
    - `xmc.authoring.read` (datasource fields + user)
    - `pages.context.read`

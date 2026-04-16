@@ -168,12 +168,12 @@ the client and does **not** auto-retry.
 
 ### 6.1 Extension-entry layer
 
-- **`app/extensions/pages-panel/page.tsx`** — Pages Context Panel
+- **`app/pages-panel/page.tsx`** — Pages Context Panel
   entry. Mounts `<ReportBugButton />`, `<SettingsGear />`, and
   conditionally `<ReportBugDialog />` / `<SettingsView />`.
   Subscribes to `pages.context` and layout-change events; disables
   the report button when no rendering is selected.
-- **`app/extensions/full-screen/page.tsx`** — scaffolded-empty
+- **`app/full-screen/page.tsx`** — scaffolded-empty
   portability harness for v1.1.
 
 ### 6.2 Feature layer
@@ -418,7 +418,7 @@ client and shown as a small "Ref: …" string in the error banner.
 ### 9.3 Playwright E2E scenarios
 
 Run against `next dev` with an MSW worker. A tiny `dev-host.html`
-page renders `/extensions/pages-panel` and injects a faked
+page renders `/pages-panel` and injects a faked
 `pages.context` via `postMessage` to stand in for the Sitecore host.
 
 1. **Happy path** — select component → dialog opens → context
