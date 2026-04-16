@@ -132,13 +132,16 @@ async function store(): Promise<LocalStore> {
   return s;
 }
 
-// Seed the Sitecore tree the plugin expects: Feature
-// templates root, a demo tenant/site, Settings and Data
-// folders, and the plugin's own Config + Bug Reports items
-// so the datastore behaves as if it had already been
-// through initial installation. Tests and local dev don't
-// have to manually provision before using the settings or
-// reports APIs.
+// Seed only the scaffolding the installer expects to find:
+// Sitecore roots, the Feature templates folder, and the
+// demo site. Deliberately DO NOT pre-create Settings /
+// Data subtrees or the plugin's Config + Bug Reports items
+// — those must come from provisionPluginSite so the
+// first-install CTA actually runs end-to-end in local
+// mode, the same way it would against a real Sitecore
+// tenant. The provisioner writes everything back through
+// the local mock and persists it to state.json, so after
+// the first install the state survives restarts.
 function seedRootTree(s: LocalStore): void {
   const folderTpl =
     "{0437FEE2-44C9-46A6-ABE9-28858D9FEE8C}";
@@ -148,12 +151,7 @@ function seedRootTree(s: LocalStore): void {
     "/sitecore/templates/Feature",
     "/sitecore/content",
     "/sitecore/content/Demo",
-    "/sitecore/content/Demo/dev-site",
-    "/sitecore/content/Demo/dev-site/Settings",
-    "/sitecore/content/Demo/dev-site/Settings/Bug Reporter for Jira",
-    "/sitecore/content/Demo/dev-site/Settings/Bug Reporter for Jira/Config",
-    "/sitecore/content/Demo/dev-site/Data",
-    "/sitecore/content/Demo/dev-site/Data/Bug Reports"
+    "/sitecore/content/Demo/dev-site"
   ];
   for (const itemPath of seedPaths) {
     s.items.set(itemPath, {

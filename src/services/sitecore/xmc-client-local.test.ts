@@ -45,7 +45,7 @@ describe("xmc-client-local — disk persistence", () => {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 
-  it("creates the state file with the seed tree on first use", async () => {
+  it("creates the state file with the scaffolding seed on first use", async () => {
     const client = createLocalXmcClient();
     await client.itemByPath(
       "/sitecore/content/Demo/dev-site"
@@ -55,11 +55,24 @@ describe("xmc-client-local — disk persistence", () => {
       fs.readFileSync(stateFile, "utf8")
     );
     expect(raw.version).toBe(1);
-    const paths = raw.items.map(
+    const paths: string[] = raw.items.map(
       (it: { path: string }) => it.path
     );
+    // Scaffolding the installer expects is present.
     expect(paths).toContain(
+      "/sitecore/content/Demo/dev-site"
+    );
+    expect(paths).toContain(
+      "/sitecore/templates/Feature"
+    );
+    // The plugin's own items MUST NOT be pre-seeded — they
+    // come from provisionPluginSite, so the first-install
+    // CTA actually runs end-to-end in local mode.
+    expect(paths).not.toContain(
       "/sitecore/content/Demo/dev-site/Settings/Bug Reporter for Jira/Config"
+    );
+    expect(paths).not.toContain(
+      "/sitecore/content/Demo/dev-site/Data/Bug Reports"
     );
   });
 
