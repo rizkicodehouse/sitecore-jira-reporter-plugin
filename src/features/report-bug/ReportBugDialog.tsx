@@ -292,7 +292,7 @@ export const ReportBugDialog: FC<ReportBugDialogProps> = (
             <li key={a.id}
                 className="flex items-center justify-between bg-muted px-2 py-1 rounded">
               <span className="flex items-center gap-1.5">
-                {a.name} <Badge variant="secondary" className="text-[10px] px-1 py-0">{a.source}</Badge>
+                {a.name} <Badge variant="default" className="text-[10px] px-1 py-0">{a.source}</Badge>
               </span>
               <Button variant="ghost" size="icon-xs"
                 aria-label={`Remove ${a.name}`}

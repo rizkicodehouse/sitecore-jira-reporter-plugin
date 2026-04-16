@@ -254,7 +254,11 @@ export const PagesPanel: FC<PagesPanelProps> = (
   }
 
   if (!sdkReady) {
-    return <div className="p-4">Initialising…</div>;
+    return (
+      <div className="flex items-center justify-center p-8">
+        <span className="text-sm text-muted-foreground">Initialising…</span>
+      </div>
+    );
   }
 
   return (
@@ -268,7 +272,7 @@ export const PagesPanel: FC<PagesPanelProps> = (
           onClick={() => setSettingsOpen((x) => !x)} />
       </div>
       {!hasSelection && (
-        <p className="text-sm text-gray-600 mt-2">
+        <p className="text-sm text-muted-foreground mt-2">
           Open a page in Sitecore Pages to report a bug on
           it. Use the gear icon to configure the target
           JIRA project.
