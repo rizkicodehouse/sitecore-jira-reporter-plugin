@@ -6,6 +6,11 @@ import { buildAuthHeaders } from "@/lib/api-headers";
 import {
   initSitecoreContext, getHostUser
 } from "@/services/sitecore/context";
+import {
+  readSdkContext, type SdkContext
+} from "@/services/sitecore/sdk-context";
+import { useScopedFetch } from "@/hooks/useScopedFetch";
+import { isSitecoreDatastore } from "@/lib/datastore-mode";
 
 type Identity = {
   tenantId: string;
@@ -17,13 +22,14 @@ type SessionState = "unknown" | "authenticated" | "needs-login";
 
 async function fetchReports(
   identity: Identity,
-  { offset, limit }: { offset: number; limit: number }
+  { offset, limit }: { offset: number; limit: number },
+  scopedFetch: typeof fetch
 ): Promise<ReportsPage> {
   const qs = new URLSearchParams({
     offset: String(offset),
     limit: String(limit)
   });
-  const res = await fetch(`/api/reports?${qs}`, {
+  const res = await scopedFetch(`/api/reports?${qs}`, {
     credentials: "include",
     headers: buildAuthHeaders(identity)
   });
@@ -47,6 +53,9 @@ export const ReportsView: FC = () => {
   const [sessionState, setSessionState] =
     useState<SessionState>("unknown");
   const [authPolling, setAuthPolling] = useState(false);
+  const [sdkContext, setSdkContext] =
+    useState<SdkContext | null>(null);
+  const scopedFetch = useScopedFetch(sdkContext);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -146,6 +155,23 @@ export const ReportsView: FC = () => {
           subscribe: () => () => {}
         };
         initSitecoreContext(adapter);
+        // Grab the Sitecore SDK context so /api/reports
+        // requests forward the editor's session when the
+        // Sitecore datastore flag is enabled.
+        if (isSitecoreDatastore()) {
+          try {
+            const pc = await adapter.query("pages.context");
+            const siteName =
+              (pc.data as { siteInfo?: { name?: string } })
+                ?.siteInfo?.name ?? "";
+            if (siteName) {
+              const resolved = await readSdkContext(
+                adapter, siteName
+              );
+              if (!cancelled) setSdkContext(resolved);
+            }
+          } catch { /* non-fatal */ }
+        }
         const user = await getHostUser();
         if (cancelled) return;
         setIdentity({
@@ -173,9 +199,9 @@ export const ReportsView: FC = () => {
           userMessage: "Not ready"
         });
       }
-      return fetchReports(identity, args);
+      return fetchReports(identity, args, scopedFetch);
     },
-    [identity]
+    [identity, scopedFetch]
   );
 
   const key = useMemo(

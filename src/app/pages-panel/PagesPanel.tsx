@@ -7,6 +7,14 @@ import {
   parseRenderings,
   getHostUser
 } from "@/services/sitecore/context";
+import {
+  readSdkContext, type SdkContext
+} from "@/services/sitecore/sdk-context";
+import { useScopedFetch } from "@/hooks/useScopedFetch";
+import { isSitecoreDatastore } from "@/lib/datastore-mode";
+import {
+  InitialInstallationCard
+} from "./InitialInstallationCard";
 import { ReportBugButton } from
   "@/features/report-bug/ReportBugButton";
 import { ReportBugDialog } from
@@ -49,6 +57,11 @@ export const PagesPanel: FC<PagesPanelProps> = (
       skipAuthForTests ? "authenticated" : "unknown"
     );
   const [authPolling, setAuthPolling] = useState(false);
+  const [sdkContext, setSdkContext] =
+    useState<SdkContext | null>(null);
+  const [provisioned, setProvisioned] =
+    useState<boolean | null>(null);
+  const scopedFetch = useScopedFetch(sdkContext);
 
   useEffect(() => {
     if (skipAuthForTests) return;
@@ -213,6 +226,22 @@ export const PagesPanel: FC<PagesPanelProps> = (
           )
       };
       initSitecoreContext(adapter);
+      // Read the SDK context (tenant / sitecoreContextId /
+      // auth token) once so server-bound fetches can
+      // forward it under the editor's session. Only needed
+      // when the Sitecore datastore flag is on — the
+      // legacy Redis path doesn't consume these headers.
+      if (isSitecoreDatastore()) {
+        try {
+          const ctx = await getPagesContext();
+          const siteName = ctx?.siteInfo?.name ?? "";
+          if (siteName) {
+            const resolved =
+              await readSdkContext(adapter, siteName);
+            setSdkContext(resolved);
+          }
+        } catch { /* non-fatal */ }
+      }
       setSdkReady(true);
     })();
   }, [skipAuthForTests]);
@@ -279,16 +308,24 @@ export const PagesPanel: FC<PagesPanelProps> = (
   const identity = { tenantId, userEmail, userName };
 
   async function loadSettings(): Promise<PublicSettings> {
-    const res = await fetch("/api/settings", {
+    const res = await scopedFetch("/api/settings", {
       credentials: "include",
       headers: buildAuthHeaders(identity)
     });
+    if (res.status === 404 && isSitecoreDatastore()) {
+      const body = await res.json().catch(() => ({}));
+      if (body?.error === "not-provisioned") {
+        setProvisioned(false);
+        throw { category: "not-provisioned" };
+      }
+    }
     if (!res.ok) throw await toErr(res);
+    setProvisioned(true);
     return (await res.json()) as PublicSettings;
   }
 
   async function saveSettings(next: SettingsUpdate) {
-    const res = await fetch("/api/settings", {
+    const res = await scopedFetch("/api/settings", {
       method: "PUT",
       credentials: "include",
       headers: buildAuthHeaders(identity, {
@@ -394,9 +431,18 @@ export const PagesPanel: FC<PagesPanelProps> = (
         )}
         {settingsOpen && (
           <div className="rounded-xl border border-primary-100/80 bg-white/70 p-3 backdrop-blur">
-            <SettingsView
-              load={loadSettings}
-              save={saveSettings} />
+            {isSitecoreDatastore() && provisioned === false
+              ? (
+                <InitialInstallationCard
+                  scopedFetch={scopedFetch}
+                  onReady={() => setProvisioned(true)}
+                />
+              )
+              : (
+                <SettingsView
+                  load={loadSettings}
+                  save={saveSettings} />
+              )}
           </div>
         )}
       </div>
