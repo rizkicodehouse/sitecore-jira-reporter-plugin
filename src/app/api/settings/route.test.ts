@@ -5,26 +5,34 @@ import { randomBytes } from "node:crypto";
 import { GET, PUT } from "./route";
 import { resetSettingsStoreForTests }
   from "@/lib/settings-store";
+import { auth0 } from "@/lib/auth0";
+
+vi.mock("@/lib/auth0", () => ({
+  auth0: { getSession: vi.fn() }
+}));
+
+const getSessionMock = vi.mocked(auth0.getSession);
 
 beforeAll(() => {
   process.env.SETTINGS_ENCRYPTION_KEY =
     randomBytes(32).toString("base64");
 });
 
-const withToken = (
+const mkReq = (
   body?: unknown,
   method = "GET",
-  tenantId = "t-1"
-): Request =>
-  new Request("http://x/api/settings", {
+  tenantId: string | null = "t-1"
+): Request => {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json"
+  };
+  if (tenantId) headers["X-Tenant-Id"] = tenantId;
+  return new Request("http://x/api/settings", {
     method,
-    headers: {
-      "Content-Type": "application/json",
-      "X-Sdk-Token": "stub-valid",
-      "X-Tenant-Id": tenantId
-    },
+    headers,
     body: body ? JSON.stringify(body) : undefined
   });
+};
 
 const validUpdate = {
   projectKey: "OPS",
@@ -41,10 +49,14 @@ describe("/api/settings", () => {
   beforeEach(() => {
     resetSettingsStoreForTests();
     vi.stubEnv("PLUGIN_ADMIN_EMAILS", "dev@local");
+    getSessionMock.mockReset();
+    getSessionMock.mockResolvedValue({
+      user: { email: "dev@local", name: "Dev" }
+    } as never);
   });
 
   it("GET returns defaults for a fresh tenant", async () => {
-    const res = await GET(withToken());
+    const res = await GET(mkReq());
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.projectKey).toBe("");
@@ -52,47 +64,37 @@ describe("/api/settings", () => {
   });
 
   it("GET 401 without session", async () => {
-    const res = await GET(new Request(
-      "http://x/api/settings",
-      { headers: { "X-Tenant-Id": "t-1" } }
-    ));
+    getSessionMock.mockResolvedValueOnce(null);
+    const res = await GET(mkReq());
     expect(res.status).toBe(401);
   });
 
   it("GET 400 without tenantId", async () => {
-    const res = await GET(new Request(
-      "http://x/api/settings",
-      { headers: { "X-Sdk-Token": "stub-valid" } }
-    ));
+    const res = await GET(mkReq(undefined, "GET", null));
     expect(res.status).toBe(400);
   });
 
   it("PUT forbids non-admin once tenant has admins",
      async () => {
-    // First save (bootstrap) — seeds tenant admin as
-    // 'other@x', locking out 'dev@local' on subsequent
-    // writes.
-    const seed = await PUT(withToken({
+    const seed = await PUT(mkReq({
       ...validUpdate,
       adminEmails: ["other@x"]
     }, "PUT"));
     expect(seed.status).toBe(200);
-    // Second save as non-admin session — 'dev@local'
-    // from the stub is not on the tenant's admin list.
     vi.stubEnv("PLUGIN_ADMIN_EMAILS", "");
-    const res = await PUT(withToken(validUpdate, "PUT"));
+    const res = await PUT(mkReq(validUpdate, "PUT"));
     expect(res.status).toBe(403);
   });
 
   it("PUT bootstrap allows first save on fresh tenant",
      async () => {
     vi.stubEnv("PLUGIN_ADMIN_EMAILS", "");
-    const res = await PUT(withToken(validUpdate, "PUT"));
+    const res = await PUT(mkReq(validUpdate, "PUT"));
     expect(res.status).toBe(200);
   });
 
   it("PUT admin writes settings", async () => {
-    const res = await PUT(withToken(validUpdate, "PUT"));
+    const res = await PUT(mkReq(validUpdate, "PUT"));
     expect(res.status).toBe(200);
     const saved = await res.json();
     expect(saved.projectKey).toBe("OPS");
@@ -101,20 +103,19 @@ describe("/api/settings", () => {
 
   it("PUT accepts api token, stores hasJiraApiToken=true",
      async () => {
-    const res = await PUT(withToken({
+    const res = await PUT(mkReq({
       ...validUpdate,
       jiraApiToken: "ATLAS-SECRET"
     }, "PUT"));
     expect(res.status).toBe(200);
     const saved = await res.json();
     expect(saved.hasJiraApiToken).toBe(true);
-    // Token itself must NEVER be echoed back.
     expect(JSON.stringify(saved))
       .not.toContain("ATLAS-SECRET");
   });
 
   it("PUT 400 on bad body", async () => {
-    const res = await PUT(withToken(
+    const res = await PUT(mkReq(
       { projectKey: "" }, "PUT"
     ));
     expect(res.status).toBe(400);

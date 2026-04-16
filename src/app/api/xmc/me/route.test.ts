@@ -1,44 +1,46 @@
-// src/app/api/xmc/me/route.test.ts
 import {
   describe, it, expect, beforeEach, vi
 } from "vitest";
 import { GET } from "./route";
+import { auth0 } from "@/lib/auth0";
 
-const mkReq = () =>
-  new Request("http://x/api/xmc/me", {
-    headers: { "X-Sdk-Token": "stub-valid" }
-  });
+vi.mock("@/lib/auth0", () => ({
+  auth0: { getSession: vi.fn() }
+}));
+
+const getSessionMock = vi.mocked(auth0.getSession);
 
 describe("GET /api/xmc/me", () => {
   beforeEach(() => {
-    vi.stubEnv(
-      "XMC_TENANT_URL",
-      "https://xmc.example.com"
-    );
+    getSessionMock.mockReset();
   });
 
-  it("returns the resolved user", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({
-        data: { me: { name: "Ada", email: "a@x.com" } }
-      }), { status: 200 })
-    ));
-    const res = await GET(mkReq());
+  it("returns the session user", async () => {
+    getSessionMock.mockResolvedValue({
+      user: { email: "a@x.com", name: "Ada" }
+    } as never);
+    const res = await GET(new Request("http://x/api/xmc/me"));
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.email).toBe("a@x.com");
+    expect(body.name).toBe("Ada");
   });
 
   it("401 without session", async () => {
+    getSessionMock.mockResolvedValue(null);
     const res = await GET(new Request("http://x/api/xmc/me"));
     expect(res.status).toBe(401);
   });
 
-  it("502 when upstream fails", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(
-      new Response("nope", { status: 500 })
-    ));
-    const res = await GET(mkReq());
-    expect(res.status).toBe(502);
+  it("falls back to empty strings when session has no user fields",
+     async () => {
+    getSessionMock.mockResolvedValue({
+      user: {}
+    } as never);
+    const res = await GET(new Request("http://x/api/xmc/me"));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.email).toBe("");
+    expect(body.name).toBe("");
   });
 });

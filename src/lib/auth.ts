@@ -1,3 +1,5 @@
+import { auth0 } from "./auth0";
+
 export type SdkSession = {
   email: string;
   name: string;
@@ -11,57 +13,19 @@ export type SessionResult =
 export async function verifySdkSession(
   req: Request
 ): Promise<SessionResult> {
-  const token = req.headers.get("X-Sdk-Token");
-  if (!token) {
-    return {
-      ok: false, status: 401, reason: "missing-token"
-    };
+  const session = await auth0.getSession();
+  const user = session?.user;
+  if (!user) {
+    return { ok: false, status: 401, reason: "no-session" };
   }
-  // Stub tokens are normally only accepted in non-prod.
-  // ALLOW_STUB_TOKEN=1 is an INTERIM escape hatch for
-  // smoke-testing deployed previews before real Auth0
-  // verification lands. Never enable on Production.
-  // See docs/TODO-auth0-integration.md.
-  const stubAllowed =
-    process.env.NODE_ENV !== "production" ||
-    process.env.ALLOW_STUB_TOKEN === "1";
-  if (stubAllowed && token.startsWith("stub-valid")) {
-    const claimedEmail = req.headers.get("X-User-Email");
-    const claimedName = req.headers.get("X-User-Name");
-    return {
-      ok: true,
-      session: {
-        email:
-          claimedEmail?.trim() ||
-          process.env.DEV_STUB_EMAIL ||
-          "dev@local",
-        name:
-          claimedName?.trim() || "Dev User",
-        tenantId:
-          getTenantId(req) ?? "dev-tenant"
-      }
-    };
-  }
-  const validator = globalThis.__SDK_VALIDATOR__;
-  if (!validator) {
-    return {
-      ok: false, status: 401, reason: "no-validator"
-    };
-  }
-  try {
-    const session = await validator(token);
-    return { ok: true, session };
-  } catch {
-    return {
-      ok: false, status: 401, reason: "invalid-token"
-    };
-  }
-}
-
-declare global {
-  // eslint-disable-next-line no-var
-  var __SDK_VALIDATOR__:
-    ((t: string) => Promise<SdkSession>) | undefined;
+  return {
+    ok: true,
+    session: {
+      email: user.email ?? "",
+      name: user.name ?? "",
+      tenantId: getTenantId(req) ?? ""
+    }
+  };
 }
 
 export function isAdminEmail(
@@ -86,22 +50,4 @@ export function getTenantId(req: Request): string | null {
   const qp = url.searchParams.get("tenantId");
   if (qp && qp.trim()) return qp.trim();
   return null;
-}
-
-// True for the dev-mode session token issued by
-// PagesPanel when there is no real Sitecore SDK to verify
-// (window.parent === window) or when running embedded
-// without proper JWT verification wired up. Routes use
-// this to short-circuit XMC calls (which would 502 with
-// a fake token) and fall back to empty data.
-export function isDevStubToken(token: string): boolean {
-  // Mirrors the gate in verifySdkSession: stub tokens are
-  // allowed in non-prod, or in prod when ALLOW_STUB_TOKEN=1
-  // is explicitly set (interim until Auth0 lands — see
-  // docs/TODO-auth0-integration.md).
-  const stubAllowed =
-    process.env.NODE_ENV !== "production" ||
-    process.env.ALLOW_STUB_TOKEN === "1";
-  if (!stubAllowed) return false;
-  return token.startsWith("stub-valid-");
 }

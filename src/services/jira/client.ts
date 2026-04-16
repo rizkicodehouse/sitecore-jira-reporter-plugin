@@ -20,11 +20,10 @@ export type CreateMetaResult = {
 export class JiraClient {
   constructor(
     private readonly opts: {
-      sdkToken: string;
       tenantId?: string;
       userEmail?: string;
       userName?: string;
-    }
+    } = {}
   ) {}
 
   private headers(
@@ -38,6 +37,7 @@ export class JiraClient {
   ): Promise<CreateIssueResult> {
     const res = await fetch("/api/jira/issue", {
       method: "POST",
+      credentials: "include",
       headers: this.headers({
         "Content-Type": "application/json"
       }),
@@ -56,7 +56,7 @@ export class JiraClient {
     });
     const res = await fetch(
       `/api/jira/create-meta?${q}`,
-      { headers: this.headers() }
+      { credentials: "include", headers: this.headers() }
     );
     if (!res.ok) throw await this.asError(res);
     return (await res.json()) as CreateMetaResult;
@@ -74,6 +74,7 @@ export class JiraClient {
       `/api/jira/attachment?issueKey=${encodeURIComponent(issueKey)}`,
       {
         method: "POST",
+        credentials: "include",
         headers: this.headers(),
         body: form
       }

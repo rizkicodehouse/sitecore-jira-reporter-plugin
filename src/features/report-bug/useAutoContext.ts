@@ -7,7 +7,6 @@ import { buildAuthHeaders } from "@/lib/api-headers";
 import type { ReportContext, RenderingMeta } from "./types";
 
 export type UseAutoContextOpts = {
-  sdkToken: string;
   tenantId?: string;
   userEmail?: string;
   userName?: string;
@@ -29,10 +28,6 @@ export function useAutoContext(
 
   useEffect(() => {
     let cancelled = false;
-    if (!opts.sdkToken) {
-      setState({ loading: true, context: null, error: null });
-      return () => { cancelled = true; };
-    }
     const hasHostUser =
       Boolean(opts.userEmail) || Boolean(opts.userName);
     (async () => {
@@ -104,7 +99,6 @@ export function useAutoContext(
     })();
     return () => { cancelled = true; };
   }, [
-    opts.sdkToken,
     opts.activeRenderingInstanceId,
     opts.userEmail,
     opts.userName
@@ -130,6 +124,7 @@ function deriveName(dataSource?: string): string {
 
 async function fetchMe(opts: UseAutoContextOpts) {
   const res = await fetch("/api/xmc/me", {
+    credentials: "include",
     headers: buildAuthHeaders(opts)
   });
   if (!res.ok) return null;

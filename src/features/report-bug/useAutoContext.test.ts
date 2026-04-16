@@ -1,4 +1,3 @@
-// src/features/report-bug/useAutoContext.test.ts
 import {
   describe, it, expect, beforeEach, vi
 } from "vitest";
@@ -48,7 +47,6 @@ describe("useAutoContext", () => {
   it("populates all context fields on mount", async () => {
     const { result } = renderHook(() =>
       useAutoContext({
-        sdkToken: "stub-valid",
         activeRenderingInstanceId: "abc"
       })
     );
@@ -68,7 +66,6 @@ describe("useAutoContext", () => {
   it("prefers host-user identity for reporter", async () => {
     const { result } = renderHook(() =>
       useAutoContext({
-        sdkToken: "stub-valid",
         userEmail: "rsa@codehousegroup.com",
         userName: "Rizki Satria"
       })
@@ -85,7 +82,7 @@ describe("useAutoContext", () => {
   it("leaves datasource null when no rendering active",
      async () => {
     const { result } = renderHook(() =>
-      useAutoContext({ sdkToken: "stub-valid" })
+      useAutoContext({})
     );
     await waitFor(() =>
       expect(result.current.loading).toBe(false)
