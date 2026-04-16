@@ -1,5 +1,5 @@
 "use client";
-import { FC, useEffect, useState } from "react";
+import { FC, ReactNode, useEffect, useState } from "react";
 import {
   initSitecoreContext, getPagesContext,
   subscribeToLayoutChanges,
@@ -264,34 +264,55 @@ export const PagesPanel: FC<PagesPanelProps> = (
 
   if (!sdkReady) {
     return (
-      <div className="flex items-center justify-center p-8">
-        <span className="text-sm text-muted-foreground">Initialising…</span>
-      </div>
+      <PanelShell ariaLabel="JIRA reporter panel">
+        <div className="flex items-center justify-center gap-2 p-6">
+          <span className="h-2 w-2 animate-pulse rounded-full bg-primary-500" />
+          <span className="text-xs font-medium text-primary-700">
+            Initialising…
+          </span>
+        </div>
+      </PanelShell>
     );
   }
 
   return (
-    <div className="flex flex-col gap-2 p-3"
-         aria-label="JIRA reporter panel">
-      <div className="flex items-center justify-between">
+    <PanelShell ariaLabel="JIRA reporter panel">
+      <div className="flex flex-col gap-3 p-4">
+        <div className="flex items-center justify-between gap-2">
+          <span className="inline-flex items-center gap-2 rounded-full border border-primary-200 bg-white/70 px-2.5 py-0.5 text-2xs font-semibold uppercase tracking-[0.18em] text-primary-700 backdrop-blur">
+            <span className="h-1.5 w-1.5 rounded-full bg-primary-500" />
+            Bug reporter
+          </span>
+          <SettingsGear
+            onClick={() => setSettingsOpen((x) => !x)} />
+        </div>
+        <h2 className="text-base font-semibold tracking-tight text-gray-900">
+          Report a{" "}
+          <span className="bg-gradient-to-r from-primary-600 via-pink-500 to-cyan-500 bg-clip-text text-transparent">
+            Bug
+          </span>
+        </h2>
         <ReportBugButton
           disabled={!hasSelection}
           onClick={() => setOpen(true)} />
-        <SettingsGear
-          onClick={() => setSettingsOpen((x) => !x)} />
+        {!hasSelection && (
+          <div className="flex items-start gap-3 rounded-xl border border-primary-100/80 bg-gradient-to-br from-primary-50/60 via-white to-cyan-50/60 p-3">
+            <div className="h-6 w-6 shrink-0 rounded-full bg-gradient-to-br from-primary-300 via-pink-300 to-cyan-300 shadow-inner" />
+            <p className="text-xs leading-relaxed text-gray-600">
+              Open a page in Sitecore Pages to report a bug
+              on it. Use the gear icon to configure the
+              target JIRA project.
+            </p>
+          </div>
+        )}
+        {settingsOpen && (
+          <div className="rounded-xl border border-primary-100/80 bg-white/70 p-3 backdrop-blur">
+            <SettingsView
+              load={loadSettings}
+              save={saveSettings} />
+          </div>
+        )}
       </div>
-      {!hasSelection && (
-        <p className="text-sm text-muted-foreground mt-2">
-          Open a page in Sitecore Pages to report a bug on
-          it. Use the gear icon to configure the target
-          JIRA project.
-        </p>
-      )}
-      {settingsOpen && (
-        <SettingsView
-          load={loadSettings}
-          save={saveSettings} />
-      )}
       {open && autoCtx.context && (
         <ReportBugDialog
           context={autoCtx.context}
@@ -316,6 +337,30 @@ export const PagesPanel: FC<PagesPanelProps> = (
             );
           }} />
       )}
-    </div>
+    </PanelShell>
   );
 };
+
+const PanelShell: FC<{
+  ariaLabel: string;
+  children: ReactNode;
+}> = ({ ariaLabel, children }) => (
+  <div
+    className="relative min-h-screen overflow-hidden p-3"
+    aria-label={ariaLabel}
+  >
+    <div
+      aria-hidden
+      className="pointer-events-none absolute inset-0 -z-10"
+    >
+      <div className="absolute inset-0 bg-gradient-to-br from-[#f7f6ff] via-white to-[#fff4fe]" />
+      <div className="absolute -top-16 -left-12 h-56 w-56 rounded-full bg-primary-200/40 blur-3xl" />
+      <div className="absolute -bottom-20 -right-12 h-56 w-56 rounded-full bg-cyan-200/40 blur-3xl" />
+      <div className="absolute top-1/3 right-1/4 h-40 w-40 rounded-full bg-pink-200/30 blur-3xl" />
+    </div>
+    <section className="overflow-hidden rounded-2xl border border-primary-100 bg-white/80 shadow-[0_20px_50px_-25px_rgba(110,63,255,0.35)] backdrop-blur-md">
+      <div className="h-1 bg-gradient-to-r from-primary-500 via-pink-500 to-cyan-500" />
+      {children}
+    </section>
+  </div>
+);
