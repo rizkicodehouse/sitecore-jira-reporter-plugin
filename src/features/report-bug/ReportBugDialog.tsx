@@ -5,6 +5,13 @@ import type {
   NormalizedField
 } from "@/lib/jira-create-meta";
 import { doc, para } from "@/lib/adf";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Spinner } from "@/components/ui/spinner";
 
 type SubmitFn = (input: {
   summary: string;
@@ -164,18 +171,15 @@ export const ReportBugDialog: FC<ReportBugDialogProps> = (
 
   if (created) {
     return (
-      <div role="dialog" aria-label="Bug reported"
-           className="p-4">
-        <p>Bug reported as{" "}
-          <a href={created.url} target="_blank"
-             rel="noreferrer" className="underline">
+      <div role="dialog" aria-label="Bug reported" className="p-4 space-y-3">
+        <p className="text-sm">
+          Bug reported as{" "}
+          <a href={created.url} target="_blank" rel="noreferrer"
+             className="text-primary underline font-medium">
             {created.key}
           </a>
         </p>
-        <button onClick={onClose}
-          className="mt-3 px-3 py-1 border rounded">
-          Close
-        </button>
+        <Button variant="outline" onClick={onClose}>Close</Button>
       </div>
     );
   }
@@ -184,25 +188,21 @@ export const ReportBugDialog: FC<ReportBugDialogProps> = (
     <div role="dialog" aria-label="Report bug"
          className="p-4 flex flex-col gap-3">
       {err && (
-        <div role="alert"
-             className="bg-red-50 border border-red-200
-                        text-red-900 p-2 rounded
-                        flex items-center justify-between">
-          <span>{err}</span>
-          <button onClick={doSubmit}
-            className="underline ml-2">Retry</button>
-        </div>
+        <Alert variant="destructive">
+          <AlertDescription className="flex items-center justify-between">
+            <span>{err}</span>
+            <Button variant="link" size="xs" onClick={doSubmit}>Retry</Button>
+          </AlertDescription>
+        </Alert>
       )}
       {context.renderings.length > 0 && (
-        <label htmlFor="rendering"
-               className="text-sm font-medium">
-          Component
+        <div className="space-y-1.5">
+          <Label htmlFor="rendering">Component</Label>
           <select id="rendering"
             value={pickedInstanceId}
             onChange={(e) =>
               setPickedInstanceId(e.target.value)}
-            className="mt-1 w-full border rounded
-                       px-2 py-1 bg-white">
+            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
             <option value={PAGE_LEVEL}>
               Page-level issue (no specific component)
             </option>
@@ -216,31 +216,26 @@ export const ReportBugDialog: FC<ReportBugDialogProps> = (
               </option>
             ))}
           </select>
-        </label>
+        </div>
       )}
-      <label htmlFor="summary" className="text-sm font-medium">
-        Summary
-        <input id="summary"
-          value={summary}
-          onChange={(e) => setSummary(e.target.value)}
-          className="mt-1 w-full border rounded px-2 py-1" />
-      </label>
-      <label htmlFor="desc" className="text-sm font-medium">
-        Description
-        <textarea id="desc"
-          value={desc}
-          onChange={(e) => setDesc(e.target.value)}
-          rows={5}
-          className="mt-1 w-full border rounded px-2 py-1" />
-      </label>
+      <div className="space-y-1.5">
+        <Label htmlFor="summary">Summary</Label>
+        <Input id="summary" value={summary}
+          onChange={(e) => setSummary(e.target.value)} />
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="desc">Description</Label>
+        <Textarea id="desc" value={desc}
+          onChange={(e) => setDesc(e.target.value)} rows={5} />
+      </div>
 
       {metaLoading && (
-        <p className="text-xs text-gray-500">
-          Loading JIRA field schema…
-        </p>
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <Spinner className="h-3 w-3" /> Loading JIRA field schema…
+        </div>
       )}
       {metaError && (
-        <p className="text-xs text-amber-700">
+        <p className="text-xs text-warning">
           Could not load JIRA field schema: {metaError}.
           The ticket may fail to create if your project
           has required custom fields.
@@ -265,27 +260,27 @@ export const ReportBugDialog: FC<ReportBugDialogProps> = (
         <summary className="cursor-pointer">
           Auto-captured context
         </summary>
-        <pre className="text-xs bg-gray-50 p-2 rounded
+        <pre className="text-xs bg-muted p-2 rounded
                         overflow-auto max-h-40">
 {JSON.stringify(context, null, 2)}
         </pre>
       </details>
       <div className="flex gap-2 items-center">
         {captureScreen && (
-          <button type="button" onClick={onCapture}
-            className="border rounded px-2 py-1">
+          <Button variant="outline" size="sm" type="button" onClick={onCapture}>
             Capture screen
-          </button>
+          </Button>
         )}
-        <label className="border rounded px-2 py-1
-                          cursor-pointer">
-          Upload image
-          <input type="file" className="hidden"
-            accept="image/png,image/jpeg,image/webp"
-            onChange={onUpload} />
-        </label>
+        <Button variant="outline" size="sm" asChild>
+          <label className="cursor-pointer">
+            Upload image
+            <input type="file" className="hidden"
+              accept="image/png,image/jpeg,image/webp"
+              onChange={onUpload} />
+          </label>
+        </Button>
         {!captureScreen && (
-          <span className="text-xs text-gray-500">
+          <span className="text-xs text-muted-foreground">
             Screen capture is blocked in this embedded
             view — use Upload with an OS screenshot.
           </span>
@@ -295,29 +290,30 @@ export const ReportBugDialog: FC<ReportBugDialogProps> = (
         <ul className="text-xs flex flex-col gap-1">
           {attach.map((a) => (
             <li key={a.id}
-                className="flex justify-between
-                           bg-gray-50 px-2 py-1 rounded">
-              <span>{a.name} ({a.source})</span>
-              <button aria-label={`Remove ${a.name}`}
+                className="flex items-center justify-between bg-muted px-2 py-1 rounded">
+              <span className="flex items-center gap-1.5">
+                {a.name} <Badge variant="secondary" className="text-[10px] px-1 py-0">{a.source}</Badge>
+              </span>
+              <Button variant="ghost" size="icon-xs"
+                aria-label={`Remove ${a.name}`}
                 onClick={() => setAttach(
                   (prev) => prev.filter((x) => x.id !== a.id)
-                )}>✕</button>
+                )}>
+                ✕
+              </Button>
             </li>
           ))}
         </ul>
       )}
       <div className="flex justify-end gap-2">
-        <button type="button" onClick={onClose}
-          className="px-3 py-1">Cancel</button>
-        <button type="button" onClick={doSubmit}
-          disabled={!canSubmit}
-          className="px-3 py-1 border rounded
-                     disabled:opacity-50">
+        <Button variant="ghost" type="button" onClick={onClose}>Cancel</Button>
+        <Button type="button" onClick={doSubmit}
+          disabled={!canSubmit}>
           {submitting ? "Submitting…" : "Submit"}
-        </button>
+        </Button>
       </div>
       {missingRequired.length > 0 && (
-        <p className="text-xs text-red-700">
+        <p className="text-xs text-destructive">
           Missing required: {missingRequired.join(", ")}.
         </p>
       )}
@@ -393,49 +389,55 @@ type DynamicFieldInputProps = {
   onChange: (v: unknown) => void;
 };
 
+const selectCls =
+  "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+
 const DynamicFieldInput: FC<DynamicFieldInputProps> = (
   { field, value, onChange }
 ) => {
   const label = (
-    <span className="text-sm font-medium">
+    <Label>
       {field.name}
       {field.required && (
-        <span className="text-red-600 ml-1">*</span>
+        <span className="text-destructive ml-1">*</span>
       )}
-    </span>
+    </Label>
   );
-  const cls = "mt-1 w-full border rounded px-2 py-1";
   if (field.type === "paragraph") {
     return (
-      <label>{label}
-        <textarea rows={3} className={cls}
+      <div className="space-y-1.5">
+        {label}
+        <Textarea rows={3}
           value={(value as string) ?? ""}
           onChange={(e) => onChange(e.target.value)} />
-      </label>
+      </div>
     );
   }
   if (field.type === "string") {
     return (
-      <label>{label}
-        <input type="text" className={cls}
+      <div className="space-y-1.5">
+        {label}
+        <Input type="text"
           value={(value as string) ?? ""}
           onChange={(e) => onChange(e.target.value)} />
-      </label>
+      </div>
     );
   }
   if (field.type === "number") {
     return (
-      <label>{label}
-        <input type="number" className={cls}
+      <div className="space-y-1.5">
+        {label}
+        <Input type="number"
           value={(value as string) ?? ""}
           onChange={(e) => onChange(e.target.value)} />
-      </label>
+      </div>
     );
   }
   if (field.type === "option" || field.type === "priority") {
     return (
-      <label>{label}
-        <select className={cls + " bg-white"}
+      <div className="space-y-1.5">
+        {label}
+        <select className={selectCls}
           value={(value as string) ?? ""}
           onChange={(e) => onChange(e.target.value)}>
           <option value="">— Select —</option>
@@ -445,14 +447,15 @@ const DynamicFieldInput: FC<DynamicFieldInputProps> = (
             </option>
           ))}
         </select>
-      </label>
+      </div>
     );
   }
   if (field.type === "array-option") {
     const current = (value as string[]) ?? [];
     return (
-      <label>{label}
-        <select multiple className={cls + " bg-white"}
+      <div className="space-y-1.5">
+        {label}
+        <select multiple className={selectCls + " min-h-20"}
           value={current}
           onChange={(e) => {
             const picked = Array.from(
@@ -466,21 +469,22 @@ const DynamicFieldInput: FC<DynamicFieldInputProps> = (
             </option>
           ))}
         </select>
-      </label>
+      </div>
     );
   }
   if (field.type === "array-string") {
     return (
-      <label>{label}
-        <input type="text" className={cls}
+      <div className="space-y-1.5">
+        {label}
+        <Input type="text"
           placeholder="comma-separated"
           value={(value as string) ?? ""}
           onChange={(e) => onChange(e.target.value)} />
-      </label>
+      </div>
     );
   }
   return (
-    <p className="text-xs text-gray-500">
+    <p className="text-xs text-muted-foreground">
       {field.name}: field type not supported yet
       ({field.schemaType}
       {field.schemaItems ? ` of ${field.schemaItems}` : ""}).
