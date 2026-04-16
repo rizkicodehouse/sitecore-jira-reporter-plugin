@@ -1,6 +1,5 @@
 import { z } from "zod";
 import { encryptSecret, decryptSecret } from "./crypto";
-import { selectDriver } from "./storage-guard";
 import { isSitecoreDatastore } from "./datastore-mode";
 import type {
   SettingsSitecoreRepo
@@ -49,7 +48,7 @@ export const DEFAULT_SETTINGS: StoredSettings = {
 };
 
 export type StoreOptions = {
-  driver: "memory" | "upstash" | "sitecore";
+  driver: "memory" | "sitecore";
   cacheMs: number;
   onRead?: () => void;
   onWrite?: () => void;
@@ -101,18 +100,15 @@ export class SettingsStore {
     if (this.opts.driver === "memory") {
       return this.mem.get(tenantId) ?? DEFAULT_SETTINGS;
     }
-    if (this.opts.driver === "sitecore") {
-      const cfg = this.opts.sitecore;
-      if (!cfg) {
-        throw new Error(
-          "settings-store: sitecore driver selected but " +
-          "sitecore options are missing"
-        );
-      }
-      const repo = await cfg.getRepo();
-      return repo.read(cfg.tenant, cfg.site);
+    const cfg = this.opts.sitecore;
+    if (!cfg) {
+      throw new Error(
+        "settings-store: sitecore driver selected but " +
+        "sitecore options are missing"
+      );
     }
-    return this.readKv(tenantId);
+    const repo = await cfg.getRepo();
+    return repo.read(cfg.tenant, cfg.site);
   }
 
   async getPublic(tenantId: string): Promise<PublicSettings> {
@@ -158,43 +154,15 @@ export class SettingsStore {
       this.mem.set(tenantId, value);
       return;
     }
-    if (this.opts.driver === "sitecore") {
-      const cfg = this.opts.sitecore;
-      if (!cfg) {
-        throw new Error(
-          "settings-store: sitecore driver selected but " +
-          "sitecore options are missing"
-        );
-      }
-      const repo = await cfg.getRepo();
-      await repo.write(cfg.tenant, cfg.site, value);
-      return;
+    const cfg = this.opts.sitecore;
+    if (!cfg) {
+      throw new Error(
+        "settings-store: sitecore driver selected but " +
+        "sitecore options are missing"
+      );
     }
-    await this.writeKv(tenantId, value);
-  }
-
-  private keyOf(tenantId: string): string {
-    return `plugin:settings:${tenantId}`;
-  }
-
-  private async readKv(
-    tenantId: string
-  ): Promise<StoredSettings> {
-    const { Redis } = await import("@upstash/redis");
-    const r = Redis.fromEnv();
-    const raw = await r.get<StoredSettings>(
-      this.keyOf(tenantId)
-    );
-    if (!raw) return DEFAULT_SETTINGS;
-    return { ...DEFAULT_SETTINGS, ...raw };
-  }
-
-  private async writeKv(
-    tenantId: string, value: StoredSettings
-  ): Promise<void> {
-    const { Redis } = await import("@upstash/redis");
-    const r = Redis.fromEnv();
-    await r.set(this.keyOf(tenantId), value);
+    const repo = await cfg.getRepo();
+    await repo.write(cfg.tenant, cfg.site, value);
   }
 }
 
@@ -239,11 +207,9 @@ export function getSettingsStore(): SettingsStore {
       });
       return sg.__jiraPluginSettingsSingleton;
     }
-    const driver = selectDriver({
-      source: "settings-store"
-    });
+    // Dev / local fallback: in-memory driver.
     sg.__jiraPluginSettingsSingleton = new SettingsStore({
-      driver, cacheMs: 30_000
+      driver: "memory", cacheMs: 30_000
     });
   }
   return sg.__jiraPluginSettingsSingleton;

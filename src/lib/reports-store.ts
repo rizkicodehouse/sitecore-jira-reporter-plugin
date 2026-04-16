@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { selectDriver } from "./storage-guard";
+import { isSitecoreDatastore } from "./datastore-mode";
 import type {
   ReportsSitecoreRepo
 } from "./reports-sitecore-repo";
@@ -33,7 +33,7 @@ export const ReportRecordSchema = z.object({
 export type ReportRecord = z.infer<typeof ReportRecordSchema>;
 
 export type StoreOptions = {
-  driver: "memory" | "upstash" | "sitecore";
+  driver: "memory" | "sitecore";
   maxRecords: number;
   onRead?: () => void;
   onWrite?: () => void;
@@ -78,20 +78,12 @@ export class ReportsStore {
       await repo.append(cfg.tenant, cfg.site, parsed);
       return;
     }
-    if (this.opts.driver === "memory") {
-      const list = this.mem.get(tenantId) ?? [];
-      list.unshift(parsed);
-      if (list.length > this.opts.maxRecords) {
-        list.length = this.opts.maxRecords;
-      }
-      this.mem.set(tenantId, list);
-      return;
+    const list = this.mem.get(tenantId) ?? [];
+    list.unshift(parsed);
+    if (list.length > this.opts.maxRecords) {
+      list.length = this.opts.maxRecords;
     }
-    const { Redis } = await import("@upstash/redis");
-    const r = Redis.fromEnv();
-    const key = this.keyOf(tenantId);
-    await r.lpush(key, JSON.stringify(parsed));
-    await r.ltrim(key, 0, this.opts.maxRecords - 1);
+    this.mem.set(tenantId, list);
   }
 
   async list(
@@ -110,45 +102,13 @@ export class ReportsStore {
       const repo = await cfg.getRepo();
       return repo.list(cfg.tenant, cfg.site, { offset, limit });
     }
-    if (this.opts.driver === "memory") {
-      const list = this.mem.get(tenantId) ?? [];
-      return {
-        items: list.slice(offset, offset + limit),
-        total: list.length,
-        offset,
-        limit
-      };
-    }
-    const { Redis } = await import("@upstash/redis");
-    const r = Redis.fromEnv();
-    const key = this.keyOf(tenantId);
-    const total = await r.llen(key);
-    const end = offset + limit - 1;
-    const raw = await r.lrange<string>(key, offset, end);
-    const items: ReportRecord[] = [];
-    for (const entry of raw) {
-      const parsed = safeParseRecord(entry);
-      if (parsed) items.push(parsed);
-    }
-    return { items, total, offset, limit };
-  }
-
-  private keyOf(tenantId: string): string {
-    return `plugin:reports:${tenantId}`;
-  }
-}
-
-function safeParseRecord(
-  entry: string | ReportRecord | null | undefined
-): ReportRecord | null {
-  if (!entry) return null;
-  try {
-    const obj = typeof entry === "string"
-      ? JSON.parse(entry) : entry;
-    const r = ReportRecordSchema.safeParse(obj);
-    return r.success ? r.data : null;
-  } catch {
-    return null;
+    const list = this.mem.get(tenantId) ?? [];
+    return {
+      items: list.slice(offset, offset + limit),
+      total: list.length,
+      offset,
+      limit
+    };
   }
 }
 
@@ -168,11 +128,20 @@ const sg = globalThis as unknown as SingletonGlobals;
 
 export function getReportsStore(): ReportsStore {
   if (!sg.__jiraPluginReportsSingleton) {
-    const driver = selectDriver({
-      source: "reports-store"
-    });
+    if (isSitecoreDatastore()) {
+      sg.__jiraPluginReportsSingleton = new ReportsStore({
+        driver: "sitecore", maxRecords: 500,
+        // tenant/site/repo arrive per-request via
+        // buildRequestReportsStore. The singleton is
+        // retained for legacy callers that don't pass a
+        // request; those paths will throw with a helpful
+        // error if they hit the driver directly.
+        sitecore: undefined
+      });
+      return sg.__jiraPluginReportsSingleton;
+    }
     sg.__jiraPluginReportsSingleton = new ReportsStore({
-      driver, maxRecords: 500
+      driver: "memory", maxRecords: 500
     });
   }
   return sg.__jiraPluginReportsSingleton;
