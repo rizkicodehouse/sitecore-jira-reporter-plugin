@@ -1,10 +1,16 @@
-// In-memory local XmcClient implementation for dev-without-
-// Sitecore workflows. Stores items + templates in a process-
-// scoped tree on globalThis so they survive Next.js HMR.
+// Local XmcClient implementation for dev-without-Sitecore
+// workflows. Stores items + templates in a process-scoped
+// tree hoisted onto globalThis (survives Next.js HMR). When
+// NODE_ENV !== "test" the tree is also persisted to a JSON
+// file on disk so settings + tickets survive `next dev`
+// restarts and ngrok-facing sessions.
+//
 // Activated via the factory in xmc-client-factory.ts when
-// XMC_LOCAL_MODE=true. Zero relation to Redis or any external
-// service.
+// XMC_LOCAL_MODE=true. Zero relation to Redis or any
+// external service.
 
+import * as fs from "node:fs";
+import * as path from "node:path";
 import type {
   XmcClient, SitecoreItem, CreateItemArgs,
   UpdateItemArgs, SearchArgs, SearchPage
@@ -21,7 +27,9 @@ type LocalItem = {
 };
 
 type LocalStore = {
-  items: Map<string, LocalItem>; // keyed by path
+  items: Map<string, LocalItem>;
+  hydrated: boolean;
+  writeChain: Promise<void>;
 };
 
 type LocalStoreGlobals = {
@@ -29,12 +37,99 @@ type LocalStoreGlobals = {
 };
 const G = globalThis as unknown as LocalStoreGlobals;
 
-function store(): LocalStore {
+const DEFAULT_STATE_DIR = ".xmc-local";
+const DEFAULT_STATE_FILE = "state.json";
+
+function stateFilePath(): string {
+  if (process.env.XMC_LOCAL_STATE_FILE) {
+    return process.env.XMC_LOCAL_STATE_FILE;
+  }
+  return path.join(
+    process.cwd(), DEFAULT_STATE_DIR, DEFAULT_STATE_FILE
+  );
+}
+
+function usesDiskPersistence(): boolean {
+  // Tests must stay pure-memory so fixtures don't leak
+  // between runs and CI doesn't accumulate state on disk.
+  return process.env.NODE_ENV !== "test";
+}
+
+function rawStore(): LocalStore {
   if (!G.__jpLocalXmcStore) {
-    G.__jpLocalXmcStore = { items: new Map() };
-    seedRootTree(G.__jpLocalXmcStore);
+    G.__jpLocalXmcStore = {
+      items: new Map(),
+      hydrated: false,
+      writeChain: Promise.resolve()
+    };
   }
   return G.__jpLocalXmcStore;
+}
+
+async function hydrate(s: LocalStore): Promise<void> {
+  if (s.hydrated) return;
+  if (!usesDiskPersistence()) {
+    seedRootTree(s);
+    s.hydrated = true;
+    return;
+  }
+  const file = stateFilePath();
+  try {
+    const raw = await fs.promises.readFile(file, "utf8");
+    const parsed = JSON.parse(raw) as {
+      version: number;
+      items: LocalItem[];
+    };
+    s.items.clear();
+    for (const item of parsed.items ?? []) {
+      s.items.set(item.path, item);
+    }
+    s.hydrated = true;
+  } catch (e) {
+    const code = (e as NodeJS.ErrnoException).code;
+    if (code !== "ENOENT") {
+      // Corrupt or unreadable state file — log but recover
+      // by re-seeding. Never lose the ability to boot.
+      // eslint-disable-next-line no-console
+      console.warn(
+        `[xmc-local] unable to read ${file}: ${(e as Error).message}. ` +
+        `Re-seeding.`
+      );
+    }
+    seedRootTree(s);
+    s.hydrated = true;
+    await persist(s);
+  }
+}
+
+// Atomic write through a per-process promise chain so
+// concurrent mutations from ngrok / localhost don't
+// interleave half-written JSON.
+async function persist(s: LocalStore): Promise<void> {
+  if (!usesDiskPersistence()) return;
+  s.writeChain = s.writeChain.then(() => doPersist(s));
+  return s.writeChain;
+}
+
+async function doPersist(s: LocalStore): Promise<void> {
+  const file = stateFilePath();
+  const dir = path.dirname(file);
+  await fs.promises.mkdir(dir, { recursive: true });
+  const payload = {
+    version: 1,
+    items: Array.from(s.items.values())
+  };
+  const tmp = `${file}.tmp`;
+  await fs.promises.writeFile(
+    tmp, JSON.stringify(payload, null, 2), "utf8"
+  );
+  await fs.promises.rename(tmp, file);
+}
+
+async function store(): Promise<LocalStore> {
+  const s = rawStore();
+  await hydrate(s);
+  return s;
 }
 
 // Seed the Sitecore tree the plugin expects: Feature
@@ -60,13 +155,17 @@ function seedRootTree(s: LocalStore): void {
     "/sitecore/content/Demo/dev-site/Data",
     "/sitecore/content/Demo/dev-site/Data/Bug Reports"
   ];
-  for (const path of seedPaths) {
-    s.items.set(path, {
-      itemId: fakeGuid(path),
+  for (const itemPath of seedPaths) {
+    s.items.set(itemPath, {
+      itemId: fakeGuid(itemPath),
       templateId: folderTpl,
-      parent: path.substring(0, path.lastIndexOf("/")) || "/",
-      path,
-      name: path.substring(path.lastIndexOf("/") + 1) || "/",
+      parent: itemPath.substring(
+        0, itemPath.lastIndexOf("/")
+      ) || "/",
+      path: itemPath,
+      name: itemPath.substring(
+        itemPath.lastIndexOf("/") + 1
+      ) || "/",
       language: "en",
       fields: {}
     });
@@ -93,9 +192,10 @@ export function createLocalXmcClient(): XmcClient {
     },
 
     async itemByPath(
-      path: string
+      itemPath: string
     ): Promise<SitecoreItem | null> {
-      const item = store().items.get(path);
+      const s = await store();
+      const item = s.items.get(itemPath);
       if (!item) return null;
       return toSitecoreItem(item);
     },
@@ -103,32 +203,35 @@ export function createLocalXmcClient(): XmcClient {
     async createItem(
       args: CreateItemArgs
     ): Promise<SitecoreItem> {
-      const path = `${args.parent}/${args.name}`;
-      const existing = store().items.get(path);
+      const s = await store();
+      const itemPath = `${args.parent}/${args.name}`;
+      const existing = s.items.get(itemPath);
       if (existing) {
         throw new Error(
-          `XMC GraphQL: Item name is not unique at ${path}`
+          `XMC GraphQL: Item name is not unique at ${itemPath}`
         );
       }
       const fields: Record<string, string> = {};
       for (const f of args.fields) fields[f.name] = f.value;
       const item: LocalItem = {
-        itemId: fakeGuid(path),
+        itemId: fakeGuid(itemPath),
         templateId: args.templateId,
         parent: args.parent,
-        path,
+        path: itemPath,
         name: args.name,
         language: args.language,
         fields
       };
-      store().items.set(path, item);
+      s.items.set(itemPath, item);
+      await persist(s);
       return toSitecoreItem(item);
     },
 
     async updateItem(
       args: UpdateItemArgs
     ): Promise<SitecoreItem> {
-      const target = Array.from(store().items.values())
+      const s = await store();
+      const target = Array.from(s.items.values())
         .find((it) => it.itemId === args.itemId);
       if (!target) {
         throw new Error(
@@ -138,15 +241,17 @@ export function createLocalXmcClient(): XmcClient {
       for (const f of args.fields) {
         target.fields[f.name] = f.value;
       }
+      await persist(s);
       return toSitecoreItem(target);
     },
 
     async searchItems(
       args: SearchArgs
     ): Promise<SearchPage> {
+      const s = await store();
       const rootPrefix = args.rootPath.endsWith("/")
         ? args.rootPath : `${args.rootPath}/`;
-      const matches = Array.from(store().items.values())
+      const matches = Array.from(s.items.values())
         .filter((it) =>
           it.path.startsWith(rootPrefix) &&
           normaliseTemplateId(it.templateId)
@@ -179,18 +284,20 @@ export function createLocalXmcClient(): XmcClient {
           input?: { name: string; parent: string };
         })?.input;
         if (!input) throw new Error("mock: missing input");
-        const path = `${input.parent}/${input.name}`;
+        const s = await store();
+        const itemPath = `${input.parent}/${input.name}`;
         const item: LocalItem = {
-          itemId: fakeGuid(path),
+          itemId: fakeGuid(itemPath),
           templateId:
             "{TEMPLATE-TEMPLATE-BCDE-1111-222233334444}",
           parent: input.parent,
-          path,
+          path: itemPath,
           name: input.name,
           language: "en",
           fields: { __Template: "true" }
         };
-        store().items.set(path, item);
+        s.items.set(itemPath, item);
+        await persist(s);
         return {
           createItemTemplate: {
             itemTemplate: {

@@ -26,6 +26,10 @@ coverage/
 test-results/
 playwright-report/
 
+# Local XMC mock state (XMC_LOCAL_MODE=true). Contains the
+# dev-time Sitecore item tree as JSON. Never commit.
+.xmc-local/
+
 # Git worktrees
 .worktrees/
 /docs/images/*
