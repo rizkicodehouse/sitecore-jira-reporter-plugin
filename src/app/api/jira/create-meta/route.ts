@@ -51,9 +51,9 @@ function fail(
           "retryable",
         userMessage:
           status === 401 ? "Sign-in required"
-          : status === 412 ? "JIRA not configured"
+          : status === 412 ? "Jira not configured"
           : status === 400 ? "Missing project or issueType"
-          : detail ?? "Could not fetch JIRA field schema",
+          : detail ?? "Could not fetch Jira field schema",
         logCode: code
     } },
     { status }

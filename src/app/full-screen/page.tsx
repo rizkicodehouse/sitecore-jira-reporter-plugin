@@ -27,8 +27,8 @@ export default function FullScreen() {
               </span>
             </h1>
             <p className="mt-1 max-w-xl text-sm text-gray-500">
-              Every bug submitted via the JIRA Reporter
-              plugin for this tenant, newest first.
+              Every bug submitted via Bug Reporter for Jira
+              for this tenant, newest first.
             </p>
           </div>
         </header>

@@ -17,7 +17,7 @@ export const ReportBugButton: FC<ReportBugButtonProps> = (
     size="sm"
     disabled={disabled}
     onClick={onClick}
-    aria-label="Report bug to JIRA"
+    aria-label="Report bug to Jira"
     title={disabled
       ? "Select a component to report"
       : "Report a bug for the selected component"}

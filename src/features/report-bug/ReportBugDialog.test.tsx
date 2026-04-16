@@ -74,7 +74,7 @@ describe("ReportBugDialog", () => {
     const submit = vi.fn()
       .mockRejectedValueOnce({
         category: "retryable",
-        userMessage: "JIRA is busy"
+        userMessage: "Jira is busy"
       })
       .mockResolvedValueOnce({
         key: "CLD-2", url: "http://j/CLD-2"
@@ -89,7 +89,7 @@ describe("ReportBugDialog", () => {
     await userEvent.click(
       screen.getByRole("button", { name: /submit/i })
     );
-    expect(await screen.findByText(/JIRA is busy/))
+    expect(await screen.findByText(/Jira is busy/))
       .toBeInTheDocument();
     await userEvent.click(
       screen.getByRole("button", { name: /retry/i })

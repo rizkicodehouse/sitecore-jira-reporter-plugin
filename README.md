@@ -1,7 +1,7 @@
-# JIRA Reporter — Sitecore Marketplace Plugin
+# Bug Reporter for Jira — Sitecore Marketplace Plugin
 
 Standalone Next.js plugin that lets a Sitecore XM Cloud Page
-Builder user report a bug to JIRA Cloud in two clicks.
+Builder user report a bug to Jira Cloud in two clicks.
 
 ## Local dev
 

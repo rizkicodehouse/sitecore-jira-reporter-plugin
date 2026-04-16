@@ -85,7 +85,7 @@ export const SettingsView: FC<SettingsViewProps> = ({ load, save }) => {
   }
 
   const missing: string[] = [];
-  if (!value.jiraBaseUrl.trim()) missing.push("JIRA base URL");
+  if (!value.jiraBaseUrl.trim()) missing.push("Jira base URL");
   if (!value.jiraServiceEmail.trim()) missing.push("Service account email");
   if (!newToken.trim() && !value.hasJiraApiToken) missing.push("API token");
   if (!value.projectKey.trim()) missing.push("Project key");
@@ -104,12 +104,12 @@ export const SettingsView: FC<SettingsViewProps> = ({ load, save }) => {
         </Alert>
       )}
 
-      <h3 className="text-sm font-semibold mt-3">JIRA connection</h3>
+      <h3 className="text-sm font-semibold mt-3">Jira connection</h3>
       <Separator className="my-1" />
 
       <div className="space-y-1.5">
         <Label htmlFor="jiraBaseUrl">
-          JIRA base URL <span className="text-destructive">*</span>
+          Jira base URL <span className="text-destructive">*</span>
         </Label>
         <Input
           id="jiraBaseUrl"
@@ -214,8 +214,8 @@ export const SettingsView: FC<SettingsViewProps> = ({ load, save }) => {
           }
         />
         <p className="text-xs text-muted-foreground mt-1">
-          Enter an email and we&apos;ll look up the JIRA accountId on save
-          (requires valid JIRA creds above).
+          Enter an email and we&apos;ll look up the Jira accountId on save
+          (requires valid Jira creds above).
         </p>
       </div>
 

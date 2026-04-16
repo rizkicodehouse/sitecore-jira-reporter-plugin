@@ -80,7 +80,7 @@ export function mapJiraError(u: UpstreamInput): PluginError {
   if (status === 404) return {
     category: "config", logCode: "jira.404.project-not-found",
     userMessage:
-      "Configured JIRA project not found — check plugin " +
+      "Configured Jira project not found — check plugin " +
       "settings."
   };
   if (status === 400) {
@@ -88,8 +88,8 @@ export function mapJiraError(u: UpstreamInput): PluginError {
     return {
       category: "config", logCode: "jira.400.validation",
       userMessage: detail
-        ? `JIRA rejected the request: ${detail}`
-        : "JIRA rejected the request. Check Settings — " +
+        ? `Jira rejected the request: ${detail}`
+        : "Jira rejected the request. Check Settings — " +
           "project key, issue type, labels, assignee."
     };
   }
@@ -101,16 +101,16 @@ export function mapJiraError(u: UpstreamInput): PluginError {
   if (status === 429) return {
     category: "retryable", logCode: "jira.429.rate-limited",
     userMessage:
-      `JIRA is busy — try again in ${retryAfterSeconds ?? 10}s.`,
+      `Jira is busy — try again in ${retryAfterSeconds ?? 10}s.`,
     retryAfterSeconds
   };
   if (status >= 500 && status < 600) return {
     category: "retryable", logCode: `jira.${status}.server`,
-    userMessage: "JIRA is temporarily unavailable."
+    userMessage: "Jira is temporarily unavailable."
   };
   return {
     category: "unknown", logCode: `jira.${status}.unknown`,
-    userMessage: "JIRA returned an unexpected error."
+    userMessage: "Jira returned an unexpected error."
   };
 }
 

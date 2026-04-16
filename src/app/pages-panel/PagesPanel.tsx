@@ -264,7 +264,7 @@ export const PagesPanel: FC<PagesPanelProps> = (
 
   if (!sdkReady) {
     return (
-      <PanelShell ariaLabel="JIRA reporter panel">
+      <PanelShell ariaLabel="Bug Reporter for Jira panel">
         <div className="flex items-center justify-center gap-2 p-6">
           <span className="h-2 w-2 animate-pulse rounded-full bg-primary-500" />
           <span className="text-xs font-medium text-primary-700">
@@ -276,7 +276,7 @@ export const PagesPanel: FC<PagesPanelProps> = (
   }
 
   return (
-    <PanelShell ariaLabel="JIRA reporter panel">
+    <PanelShell ariaLabel="Bug Reporter for Jira panel">
       <div className="flex flex-col gap-3 p-4">
         <div className="flex items-center justify-between gap-2">
           <span className="inline-flex items-center gap-2 rounded-full border border-primary-200 bg-white/70 px-2.5 py-0.5 text-2xs font-semibold uppercase tracking-[0.18em] text-primary-700 backdrop-blur">
@@ -301,7 +301,7 @@ export const PagesPanel: FC<PagesPanelProps> = (
             <p className="text-xs leading-relaxed text-gray-600">
               Open a page in Sitecore Pages to report a bug
               on it. Use the gear icon to configure the
-              target JIRA project.
+              target Jira project.
             </p>
           </div>
         )}

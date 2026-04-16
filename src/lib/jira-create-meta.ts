@@ -73,7 +73,7 @@ export async function fetchCreateMetaFields(
   });
   if (!res.ok) {
     throw new Error(
-      `JIRA createmeta HTTP ${res.status}`
+      `Jira createmeta HTTP ${res.status}`
     );
   }
   const body = await res.json() as {

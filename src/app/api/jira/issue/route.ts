@@ -69,7 +69,7 @@ export async function POST(req: Request) {
     return respondError(412, {
       category: "config",
       userMessage:
-        "JIRA is not configured. Open Settings and set " +
+        "Jira is not configured. Open Settings and set " +
         "base URL, service email, and API token.",
       logCode: "jira.issue.not-configured"
     });
@@ -87,7 +87,7 @@ export async function POST(req: Request) {
     return respondError(412, {
       category: "config",
       userMessage:
-        "Target JIRA project key is not set. Open " +
+        "Target Jira project key is not set. Open " +
         "Settings and set the project key.",
       logCode: "jira.issue.no-project"
     });
@@ -153,7 +153,7 @@ export async function POST(req: Request) {
   try {
     let upstream = await postIssue({ fields });
     if (upstream.status === 400) {
-      // Parse JIRA's error body. Any field tagged with
+      // Parse Jira's error body. Any field tagged with
       // "cannot be set" is a screen-config mismatch —
       // strip it and retry. Track what was dropped so
       // we can re-add via a comment afterwards.
@@ -192,7 +192,7 @@ export async function POST(req: Request) {
     };
     if (droppedFields.includes("description")) {
       // Fallback: post the full description as a comment
-      // on the new issue. Always allowed by JIRA.
+      // on the new issue. Always allowed by Jira.
       try {
         await getJiraQueue().add(() => fetch(
           `${creds.baseUrl}/rest/api/3/issue/` +
@@ -274,7 +274,7 @@ export async function POST(req: Request) {
       } catch (e) {
         // Persistence is best-effort: never block the
         // client response on local store failures. The
-        // issue was already created in JIRA.
+        // issue was already created in Jira.
         if (process.env.NODE_ENV !== "production") {
           console.warn(
             "[jira-reporter] reports-store append failed",
@@ -291,7 +291,7 @@ export async function POST(req: Request) {
   } catch {
     return respondError(502, {
       category: "retryable",
-      userMessage: "JIRA is temporarily unavailable.",
+      userMessage: "Jira is temporarily unavailable.",
       logCode: "jira.issue.network"
     });
   }
@@ -306,7 +306,7 @@ function respondError(
   return NextResponse.json({ error }, { status });
 }
 
-// Built-in JIRA fields the server controls. Anything in
+// Built-in Jira fields the server controls. Anything in
 // this set must NOT be settable from the client custom-
 // fields payload (otherwise a malicious client could
 // switch projects, summary, etc.).

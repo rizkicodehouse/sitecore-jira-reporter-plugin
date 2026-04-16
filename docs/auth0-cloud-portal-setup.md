@@ -36,7 +36,7 @@ Open Cloud Portal → Developer Studio → Credentials →
 ### Alias
 
 ```text
-JIRA Reporter Plugin
+Bug Reporter for Jira
 ```
 
 Free-form label. Any name works; this is just how the

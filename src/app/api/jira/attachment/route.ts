@@ -72,8 +72,8 @@ function err(status: number, code: string) {
           status === 400 ? "Invalid attachment request" :
           status === 401 ? "Sign-in required" :
           status === 412
-            ? "JIRA is not configured. Open Settings first."
-            : "JIRA is temporarily unavailable",
+            ? "Jira is not configured. Open Settings first."
+            : "Jira is temporarily unavailable",
         logCode: code
     } },
     { status }

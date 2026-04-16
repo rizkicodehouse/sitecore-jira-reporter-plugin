@@ -36,7 +36,7 @@ base URL from the request `Host` at runtime.
 ## 3. Update the Auth0 application (Cloud Portal)
 
 Append the new ngrok URL to all four allow-lists on the
-JIRA Reporter Plugin credential. Callback needs the path;
+Bug Reporter for Jira credential. Callback needs the path;
 the others take origins only.
 
 | Field | Value to append |

@@ -1,7 +1,8 @@
 # Vercel deployment guide
 
-This guide walks through deploying the JIRA Reporter plugin to
-Vercel with Upstash Redis as the multi-tenant settings store.
+This guide walks through deploying the Bug Reporter for Jira
+plugin to Vercel with Upstash Redis as the multi-tenant
+settings store.
 
 ## Prerequisites
 
@@ -14,7 +15,7 @@ Vercel with Upstash Redis as the multi-tenant settings store.
 - **Runtime:** Next.js 15 on Vercel serverless functions
 - **Persistence:** Upstash Redis (via Vercel Marketplace) for
   per-tenant settings
-- **Secrets:** JIRA API tokens are AES-encrypted at rest using
+- **Secrets:** Jira API tokens are AES-encrypted at rest using
   `SETTINGS_ENCRYPTION_KEY`
 - **In-memory cache:** 30s TTL in `SettingsStore` reduces Redis
   read load
@@ -33,7 +34,7 @@ Vercel with Upstash Redis as the multi-tenant settings store.
 | `APP_BASE_URL` | Yes | Public HTTPS URL of this deployment |
 | `UPSTASH_REDIS_REST_URL` | Yes (multi-tenant) | Redis endpoint |
 | `UPSTASH_REDIS_REST_TOKEN` | Yes (multi-tenant) | Redis auth |
-| `SETTINGS_ENCRYPTION_KEY` | Strongly recommended | AES key for JIRA tokens |
+| `SETTINGS_ENCRYPTION_KEY` | Strongly recommended | AES key for Jira tokens |
 | `PLUGIN_ADMIN_EMAILS` | Optional | Super-admin allowlist |
 | `MAX_ATTACHMENT_MB` | Optional | Upload cap (default 25) |
 
@@ -171,7 +172,7 @@ instance hit the in-memory cache until the 30s TTL expires.
 ### Rotating the encryption key
 
 Rotating `SETTINGS_ENCRYPTION_KEY` invalidates all stored
-JIRA API tokens. Tenants will need to re-enter their tokens
+Jira API tokens. Tenants will need to re-enter their tokens
 via the Settings UI. Plan rotations accordingly.
 
 ## Troubleshooting
@@ -205,9 +206,9 @@ The Marketplace integration was disconnected. Re-connect via
 *Storage* tab, or regenerate the token in the Upstash console
 and update the env vars.
 
-### JIRA tokens fail to decrypt after redeploy
+### Jira tokens fail to decrypt after redeploy
 
-Symptom: API routes that decrypt JIRA creds (e.g.
+Symptom: API routes that decrypt Jira creds (e.g.
 `/api/jira/create-meta`, `/api/jira/issue`, `/api/settings`)
 return 500 with the Node crypto error
 `Unsupported state or unable to authenticate data` in Vercel
@@ -236,7 +237,7 @@ Remediation (pick one):
    DEL plugin:settings:{tenantId}
    ```
 
-   Then have that tenant re-enter their JIRA API token via
+   Then have that tenant re-enter their Jira API token via
    the Settings UI. A new DEK will be generated and wrapped
    with the current KEK.
 

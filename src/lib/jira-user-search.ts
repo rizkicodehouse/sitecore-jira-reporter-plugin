@@ -39,7 +39,7 @@ export async function resolveJiraUserByEmail(
   if (!baseUrl || !serviceEmail || !apiToken) {
     throw new JiraUserLookupError(
       "bad-creds",
-      "JIRA credentials missing — save the connection " +
+      "Jira credentials missing — save the connection " +
       "fields before using email for the assignee."
     );
   }
@@ -59,20 +59,20 @@ export async function resolveJiraUserByEmail(
   } catch {
     throw new JiraUserLookupError(
       "network",
-      "Could not reach JIRA to look up the assignee."
+      "Could not reach Jira to look up the assignee."
     );
   }
   if (res.status === 401 || res.status === 403) {
     throw new JiraUserLookupError(
       "auth",
-      "JIRA rejected the service credentials while " +
+      "Jira rejected the service credentials while " +
       "looking up the assignee."
     );
   }
   if (!res.ok) {
     throw new JiraUserLookupError(
       "network",
-      `JIRA returned HTTP ${res.status} while looking ` +
+      `Jira returned HTTP ${res.status} while looking ` +
       "up the assignee."
     );
   }
@@ -87,7 +87,7 @@ export async function resolveJiraUserByEmail(
   } catch {
     throw new JiraUserLookupError(
       "network",
-      "Could not parse JIRA user-search response."
+      "Could not parse Jira user-search response."
     );
   }
   const active = users.filter(
@@ -96,7 +96,7 @@ export async function resolveJiraUserByEmail(
   if (active.length === 0) {
     throw new JiraUserLookupError(
       "not-found",
-      `No JIRA user matches "${query}".`
+      `No Jira user matches "${query}".`
     );
   }
   const exact = active.find(
@@ -107,7 +107,7 @@ export async function resolveJiraUserByEmail(
   if (!exact && active.length > 1) {
     throw new JiraUserLookupError(
       "ambiguous",
-      `"${query}" matches ${active.length} JIRA users. ` +
+      `"${query}" matches ${active.length} Jira users. ` +
       "Use the exact email or the 24-character accountId."
     );
   }

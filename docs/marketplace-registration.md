@@ -12,8 +12,8 @@
 1. Deploy to Vercel production. Note the URL (e.g.
    `https://sitecore-jira-reporter-plugin.vercel.app`).
 2. In Cloud Portal → Developer Studio → Register custom app:
-   - App name: `JIRA Reporter`
-   - Short description: "Report Page Builder bugs to JIRA."
+   - App name: `Bug Reporter for Jira`
+   - Short description: "Report Page Builder bugs to Jira."
    - Icon: upload `public/icon-256.png`
 3. For each extension point, add a route:
    - Pages Context Panel →

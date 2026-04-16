@@ -233,12 +233,12 @@ export const ReportBugDialog: FC<ReportBugDialogProps> = (
 
       {metaLoading && (
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <Spinner className="h-3 w-3" /> Loading JIRA field schema…
+          <Spinner className="h-3 w-3" /> Loading Jira field schema…
         </div>
       )}
       {metaError && (
         <p className="text-xs text-warning">
-          Could not load JIRA field schema: {metaError}.
+          Could not load Jira field schema: {metaError}.
           The ticket may fail to create if your project
           has required custom fields.
         </p>
@@ -247,7 +247,7 @@ export const ReportBugDialog: FC<ReportBugDialogProps> = (
       {requiredExtras.length > 0 && (
         <>
           <h4 className="text-sm font-semibold mt-2">
-            Required by your JIRA project
+            Required by your Jira project
           </h4>
           {requiredExtras.map((f) => (
             <DynamicFieldInput key={f.key} field={f}
@@ -354,7 +354,7 @@ function buildCustomFieldsPayload(
         out[f.key] = String(raw);
         break;
       case "paragraph":
-        // JIRA custom paragraph fields require ADF,
+        // Jira custom paragraph fields require ADF,
         // not plain strings. Wrap the input in a
         // minimal ADF document.
         out[f.key] = doc([para(String(raw))]);
@@ -490,7 +490,7 @@ const DynamicFieldInput: FC<DynamicFieldInputProps> = (
       {field.name}: field type not supported yet
       ({field.schemaType}
       {field.schemaItems ? ` of ${field.schemaItems}` : ""}).
-      Contact your JIRA admin.
+      Contact your Jira admin.
     </p>
   );
 };

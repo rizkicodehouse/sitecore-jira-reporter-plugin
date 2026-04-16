@@ -1,6 +1,6 @@
 import "./globals.css";
 
-export const metadata = { title: "JIRA Reporter Plugin" };
+export const metadata = { title: "Bug Reporter for Jira" };
 
 export default function RootLayout(
   { children }: { children: React.ReactNode }
