@@ -14,21 +14,46 @@ vi.mock("@/services/sitecore/xmc", () => ({
   createXmcClient: vi.fn(() => ({
     getCurrentUser: vi.fn(),
     itemByPath: vi.fn(async (path: string) => {
-      if (
-        path === "/sitecore/content/T/S/Settings" ||
-        path === "/sitecore/content/T/S/Data"
-      ) {
-        return {
-          itemId: "root", path, fields: {}
-        };
-      }
-      return null;
+      // Stub the site root, the Feature template tree, and
+      // the plugin templates so ensureFeatureTemplates
+      // short-circuits without hitting graphql.
+      const knownPaths: Record<string, unknown> = {
+        "/sitecore/content/T/S": {
+          itemId: "site", path, fields: {}
+        },
+        "/sitecore/content/T/S/Settings": {
+          itemId: "settings-root", path, fields: {}
+        },
+        "/sitecore/content/T/S/Data": {
+          itemId: "data-root", path, fields: {}
+        },
+        "/sitecore/templates/Feature": {
+          itemId: "feature-root", path, fields: {}
+        },
+        "/sitecore/templates/Feature/BugReporterJira": {
+          itemId: "plugin-root", path, fields: {}
+        },
+        "/sitecore/templates/Feature/BugReporterJira/BugReporterJiraSettings":
+          {
+            itemId: "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA",
+            path, fields: {}
+          },
+        "/sitecore/templates/Feature/BugReporterJira/BugReport":
+          {
+            itemId: "BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBBBB",
+            path, fields: {}
+          }
+      };
+      return knownPaths[path] ?? null;
     }),
     createItem: vi.fn(async () => ({
       itemId: "x", path: "/p/x", fields: {}
     })),
-    updateItem: vi.fn(),
-    searchItems: vi.fn()
+    updateItem: vi.fn(async () => ({
+      itemId: "u", path: "/p/u", fields: {}
+    })),
+    searchItems: vi.fn(),
+    graphql: vi.fn()
   }))
 }));
 

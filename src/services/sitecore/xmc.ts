@@ -62,6 +62,14 @@ export type XmcClient = {
   createItem: (args: CreateItemArgs) => Promise<SitecoreItem>;
   updateItem: (args: UpdateItemArgs) => Promise<SitecoreItem>;
   searchItems: (args: SearchArgs) => Promise<SearchPage>;
+  // Escape hatch for operations that aren't on the typed
+  // surface (e.g. createItemTemplate). Callers supply the
+  // GraphQL query/mutation + variables and get the raw
+  // `data` object back.
+  graphql: <T = unknown>(
+    query: string,
+    variables?: Record<string, unknown>
+  ) => Promise<T>;
 };
 
 function fieldsToMap(
@@ -188,6 +196,13 @@ export function createXmcClient(
           fields: fieldsToMap(r.innerItem.fields.nodes)
         }))
       };
+    },
+
+    async graphql<T = unknown>(
+      query: string,
+      variables?: Record<string, unknown>
+    ): Promise<T> {
+      return gql<T>(query, variables);
     }
   };
 }
