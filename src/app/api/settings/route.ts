@@ -20,8 +20,17 @@ import {
   JiraUserLookupError
 } from "@/lib/jira-user-search";
 
-function resolveSettingsStore(req: Request): SettingsStore {
-  if (!isSitecoreDatastore()) return getSettingsStore();
+type SitecoreRequestContext = {
+  tenant: string;
+  site: string;
+  contextId: string;
+  token: string;
+  baseUrl: string;
+};
+
+function readSitecoreContext(
+  req: Request
+): SitecoreRequestContext | null {
   const tenant = req.headers.get("x-sc-tenant") ?? "";
   const site = req.headers.get("x-sc-site") ?? "";
   const contextId =
@@ -30,16 +39,42 @@ function resolveSettingsStore(req: Request): SettingsStore {
   const baseUrl =
     process.env.SITECORE_AUTHORING_BASE_URL ?? "";
   if (!tenant || !site || !contextId || !token || !baseUrl) {
-    throw new Error("sitecore-context-missing");
+    return null;
   }
+  return { tenant, site, contextId, token, baseUrl };
+}
+
+function resolveSettingsStore(req: Request): SettingsStore {
+  if (!isSitecoreDatastore()) return getSettingsStore();
+  const ctx = readSitecoreContext(req);
+  if (!ctx) throw new Error("sitecore-context-missing");
   return buildRequestSettingsStore({
-    tenant, site,
+    tenant: ctx.tenant,
+    site: ctx.site,
     getRepo: async () => createSettingsSitecoreRepo({
       client: createXmcClient({
-        baseUrl, token, sitecoreContextId: contextId
+        baseUrl: ctx.baseUrl,
+        token: ctx.token,
+        sitecoreContextId: ctx.contextId
       })
     })
   });
+}
+
+async function checkProvisioned(
+  req: Request
+): Promise<boolean> {
+  if (!isSitecoreDatastore()) return true;
+  const ctx = readSitecoreContext(req);
+  if (!ctx) return false;
+  const repo = createSettingsSitecoreRepo({
+    client: createXmcClient({
+      baseUrl: ctx.baseUrl,
+      token: ctx.token,
+      sitecoreContextId: ctx.contextId
+    })
+  });
+  return repo.exists(ctx.tenant, ctx.site);
 }
 
 function resolveTenantId(req: Request): string | null {
@@ -55,6 +90,15 @@ export async function GET(req: Request) {
   if (!s.ok) return json401();
   const tenantId = resolveTenantId(req);
   if (!tenantId) return json400("tenant-missing");
+  if (isSitecoreDatastore()) {
+    const provisioned = await checkProvisioned(req);
+    if (!provisioned) {
+      return NextResponse.json(
+        { error: "not-provisioned" },
+        { status: 404 }
+      );
+    }
+  }
   const settings = await resolveSettingsStore(req)
     .getPublic(tenantId);
   return NextResponse.json(settings);
