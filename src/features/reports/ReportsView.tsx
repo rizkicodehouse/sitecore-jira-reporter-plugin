@@ -10,7 +10,6 @@ import {
   readSdkContext, type SdkContext
 } from "@/services/sitecore/sdk-context";
 import { useScopedFetch } from "@/hooks/useScopedFetch";
-import { isSitecoreDatastore } from "@/lib/datastore-mode";
 
 type Identity = {
   tenantId: string;
@@ -156,22 +155,19 @@ export const ReportsView: FC = () => {
         };
         initSitecoreContext(adapter);
         // Grab the Sitecore SDK context so /api/reports
-        // requests forward the editor's session when the
-        // Sitecore datastore flag is enabled.
-        if (isSitecoreDatastore()) {
-          try {
-            const pc = await adapter.query("pages.context");
-            const siteName =
-              (pc.data as { siteInfo?: { name?: string } })
-                ?.siteInfo?.name ?? "";
-            if (siteName) {
-              const resolved = await readSdkContext(
-                adapter, siteName
-              );
-              if (!cancelled) setSdkContext(resolved);
-            }
-          } catch { /* non-fatal */ }
-        }
+        // requests forward the editor's session.
+        try {
+          const pc = await adapter.query("pages.context");
+          const siteName =
+            (pc.data as { siteInfo?: { name?: string } })
+              ?.siteInfo?.name ?? "";
+          if (siteName) {
+            const resolved = await readSdkContext(
+              adapter, siteName
+            );
+            if (!cancelled) setSdkContext(resolved);
+          }
+        } catch { /* non-fatal */ }
         const user = await getHostUser();
         if (cancelled) return;
         setIdentity({

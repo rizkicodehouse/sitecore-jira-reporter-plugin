@@ -11,7 +11,6 @@ import {
   readSdkContext, type SdkContext
 } from "@/services/sitecore/sdk-context";
 import { useScopedFetch } from "@/hooks/useScopedFetch";
-import { isSitecoreDatastore } from "@/lib/datastore-mode";
 import {
   InitialInstallationCard
 } from "./InitialInstallationCard";
@@ -228,20 +227,16 @@ export const PagesPanel: FC<PagesPanelProps> = (
       initSitecoreContext(adapter);
       // Read the SDK context (tenant / sitecoreContextId /
       // auth token) once so server-bound fetches can
-      // forward it under the editor's session. Only needed
-      // when the Sitecore datastore flag is on — the
-      // legacy Redis path doesn't consume these headers.
-      if (isSitecoreDatastore()) {
-        try {
-          const ctx = await getPagesContext();
-          const siteName = ctx?.siteInfo?.name ?? "";
-          if (siteName) {
-            const resolved =
-              await readSdkContext(adapter, siteName);
-            setSdkContext(resolved);
-          }
-        } catch { /* non-fatal */ }
-      }
+      // forward it under the editor's session.
+      try {
+        const ctx = await getPagesContext();
+        const siteName = ctx?.siteInfo?.name ?? "";
+        if (siteName) {
+          const resolved =
+            await readSdkContext(adapter, siteName);
+          setSdkContext(resolved);
+        }
+      } catch { /* non-fatal */ }
       setSdkReady(true);
     })();
   }, [skipAuthForTests]);
@@ -312,7 +307,7 @@ export const PagesPanel: FC<PagesPanelProps> = (
       credentials: "include",
       headers: buildAuthHeaders(identity)
     });
-    if (res.status === 404 && isSitecoreDatastore()) {
+    if (res.status === 404) {
       const body = await res.json().catch(() => ({}));
       if (body?.error === "not-provisioned") {
         setProvisioned(false);
@@ -431,7 +426,7 @@ export const PagesPanel: FC<PagesPanelProps> = (
         )}
         {settingsOpen && (
           <div className="rounded-xl border border-primary-100/80 bg-white/70 p-3 backdrop-blur">
-            {isSitecoreDatastore() && provisioned === false
+            {provisioned === false
               ? (
                 <InitialInstallationCard
                   scopedFetch={scopedFetch}

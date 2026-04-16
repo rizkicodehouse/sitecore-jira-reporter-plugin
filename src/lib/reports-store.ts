@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { isSitecoreDatastore } from "./datastore-mode";
 import type {
   ReportsSitecoreRepo
 } from "./reports-sitecore-repo";
@@ -126,20 +125,14 @@ type SingletonGlobals = {
 };
 const sg = globalThis as unknown as SingletonGlobals;
 
+/**
+ * Returns a process-wide singleton ReportsStore with the
+ * "memory" driver. Production requests should call
+ * `buildRequestReportsStore` via `resolveReportsStore` —
+ * this singleton is retained for unit tests.
+ */
 export function getReportsStore(): ReportsStore {
   if (!sg.__jiraPluginReportsSingleton) {
-    if (isSitecoreDatastore()) {
-      sg.__jiraPluginReportsSingleton = new ReportsStore({
-        driver: "sitecore", maxRecords: 500,
-        // tenant/site/repo arrive per-request via
-        // buildRequestReportsStore. The singleton is
-        // retained for legacy callers that don't pass a
-        // request; those paths will throw with a helpful
-        // error if they hit the driver directly.
-        sitecore: undefined
-      });
-      return sg.__jiraPluginReportsSingleton;
-    }
     sg.__jiraPluginReportsSingleton = new ReportsStore({
       driver: "memory", maxRecords: 500
     });

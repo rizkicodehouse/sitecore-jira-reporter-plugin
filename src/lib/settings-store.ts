@@ -1,6 +1,5 @@
 import { z } from "zod";
 import { encryptSecret, decryptSecret } from "./crypto";
-import { isSitecoreDatastore } from "./datastore-mode";
 import type {
   SettingsSitecoreRepo
 } from "./settings-sitecore-repo";
@@ -194,20 +193,15 @@ type SingletonGlobals = {
 };
 const sg = globalThis as unknown as SingletonGlobals;
 
+/**
+ * Returns a process-wide singleton SettingsStore. In practice
+ * production code should call `buildRequestSettingsStore`
+ * instead, since the Sitecore driver requires per-request
+ * tenant/site/client wiring. This singleton is retained for
+ * unit tests that only need the "memory" driver.
+ */
 export function getSettingsStore(): SettingsStore {
   if (!sg.__jiraPluginSettingsSingleton) {
-    if (isSitecoreDatastore()) {
-      sg.__jiraPluginSettingsSingleton = new SettingsStore({
-        driver: "sitecore",
-        cacheMs: 30_000,
-        // tenant/site/repo are supplied per-request
-        // (see src/app/api/settings/route.ts) because the
-        // singleton can't know the site context at boot.
-        sitecore: undefined
-      });
-      return sg.__jiraPluginSettingsSingleton;
-    }
-    // Dev / local fallback: in-memory driver.
     sg.__jiraPluginSettingsSingleton = new SettingsStore({
       driver: "memory", cacheMs: 30_000
     });

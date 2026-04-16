@@ -8,8 +8,9 @@ import {
   SettingsStore,
   SettingsUpdateSchema
 } from "@/lib/settings-store";
-import { isSitecoreDatastore } from "@/lib/datastore-mode";
-import { createXmcClient } from "@/services/sitecore/xmc";
+import {
+  getXmcClient, isLocalXmcMode
+} from "@/services/sitecore/xmc-client-factory";
 import {
   createSettingsSitecoreRepo
 } from "@/lib/settings-sitecore-repo";
@@ -38,6 +39,13 @@ function readSitecoreContext(
   const token = req.headers.get("x-sc-auth-token") ?? "";
   const baseUrl =
     process.env.SITECORE_AUTHORING_BASE_URL ?? "";
+  if (isLocalXmcMode()) {
+    return {
+      tenant: tenant || "Demo",
+      site: site || "dev-site",
+      contextId, token, baseUrl
+    };
+  }
   if (!tenant || !site || !contextId || !token || !baseUrl) {
     return null;
   }
@@ -45,14 +53,16 @@ function readSitecoreContext(
 }
 
 function resolveSettingsStore(req: Request): SettingsStore {
-  if (!isSitecoreDatastore()) return getSettingsStore();
+  if (process.env.NODE_ENV === "test") {
+    return getSettingsStore();
+  }
   const ctx = readSitecoreContext(req);
   if (!ctx) throw new Error("sitecore-context-missing");
   return buildRequestSettingsStore({
     tenant: ctx.tenant,
     site: ctx.site,
     getRepo: async () => createSettingsSitecoreRepo({
-      client: createXmcClient({
+      client: getXmcClient({
         baseUrl: ctx.baseUrl,
         token: ctx.token,
         sitecoreContextId: ctx.contextId
@@ -64,11 +74,12 @@ function resolveSettingsStore(req: Request): SettingsStore {
 async function checkProvisioned(
   req: Request
 ): Promise<boolean> {
-  if (!isSitecoreDatastore()) return true;
+  // Tests bypass the Sitecore path entirely.
+  if (process.env.NODE_ENV === "test") return true;
   const ctx = readSitecoreContext(req);
   if (!ctx) return false;
   const repo = createSettingsSitecoreRepo({
-    client: createXmcClient({
+    client: getXmcClient({
       baseUrl: ctx.baseUrl,
       token: ctx.token,
       sitecoreContextId: ctx.contextId
@@ -78,10 +89,8 @@ async function checkProvisioned(
 }
 
 function resolveTenantId(req: Request): string | null {
-  if (isSitecoreDatastore()) {
-    const scTenant = req.headers.get("x-sc-tenant");
-    if (scTenant) return scTenant;
-  }
+  const scTenant = req.headers.get("x-sc-tenant");
+  if (scTenant) return scTenant;
   return getTenantId(req);
 }
 
@@ -90,14 +99,12 @@ export async function GET(req: Request) {
   if (!s.ok) return json401();
   const tenantId = resolveTenantId(req);
   if (!tenantId) return json400("tenant-missing");
-  if (isSitecoreDatastore()) {
-    const provisioned = await checkProvisioned(req);
-    if (!provisioned) {
-      return NextResponse.json(
-        { error: "not-provisioned" },
-        { status: 404 }
-      );
-    }
+  const provisioned = await checkProvisioned(req);
+  if (!provisioned) {
+    return NextResponse.json(
+      { error: "not-provisioned" },
+      { status: 404 }
+    );
   }
   const settings = await resolveSettingsStore(req)
     .getPublic(tenantId);

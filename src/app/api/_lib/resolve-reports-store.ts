@@ -1,23 +1,32 @@
 import {
-  getReportsStore, buildRequestReportsStore,
+  buildRequestReportsStore,
+  getReportsStore,
   type ReportsStore
 } from "@/lib/reports-store";
-import { isSitecoreDatastore } from "@/lib/datastore-mode";
-import { createXmcClient } from "@/services/sitecore/xmc";
+import {
+  getXmcClient, isLocalXmcMode
+} from "@/services/sitecore/xmc-client-factory";
 import {
   createReportsSitecoreRepo
 } from "@/lib/reports-sitecore-repo";
 
 /**
- * Resolves the correct ReportsStore for the current request.
+ * Resolves the ReportsStore for the current request.
  *
- * When `SITECORE_DATASTORE=true`, a per-request store is built
- * from `x-sc-tenant` / `x-sc-site` / `x-sc-context-id` /
- * `x-sc-auth-token` headers forwarded by the Marketplace SDK.
- * Otherwise the shared memory/upstash singleton is returned.
+ * Always constructs a Sitecore-backed store. In local-dev
+ * mode (`XMC_LOCAL_MODE=true`), the XmcClient factory
+ * returns an in-process mock so no Sitecore tenant is
+ * required. In all other modes, the `x-sc-*` headers from
+ * the Marketplace SDK are required.
  */
 export function resolveReportsStore(req: Request): ReportsStore {
-  if (!isSitecoreDatastore()) return getReportsStore();
+  // Unit/integration tests seed data through the memory
+  // singleton and expect the route to read from the same
+  // place, so short-circuit in test mode.
+  if (process.env.NODE_ENV === "test") {
+    return getReportsStore();
+  }
+
   const tenant = req.headers.get("x-sc-tenant") ?? "";
   const site = req.headers.get("x-sc-site") ?? "";
   const contextId =
@@ -25,13 +34,19 @@ export function resolveReportsStore(req: Request): ReportsStore {
   const token = req.headers.get("x-sc-auth-token") ?? "";
   const baseUrl =
     process.env.SITECORE_AUTHORING_BASE_URL ?? "";
-  if (!tenant || !site || !contextId || !token || !baseUrl) {
-    throw new Error("sitecore-context-missing");
+
+  if (!isLocalXmcMode()) {
+    if (!tenant || !site || !contextId ||
+        !token || !baseUrl) {
+      throw new Error("sitecore-context-missing");
+    }
   }
+
   return buildRequestReportsStore({
-    tenant, site,
+    tenant: tenant || "Demo",
+    site: site || "dev-site",
     getRepo: async () => createReportsSitecoreRepo({
-      client: createXmcClient({
+      client: getXmcClient({
         baseUrl, token, sitecoreContextId: contextId
       })
     })
