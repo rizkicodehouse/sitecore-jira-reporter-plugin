@@ -24,12 +24,24 @@ Vercel with Upstash Redis as the multi-tenant settings store.
 | Variable | Required | Purpose |
 |----------|----------|---------|
 | `ALLOWED_PLUGIN_ORIGIN` | Yes | CORS + `frame-ancestors` origin |
+| `AUTH0_SECRET` | Yes | Cookie signing key (32 random bytes, base64) |
+| `AUTH0_DOMAIN` | Yes | `https://auth.sitecorecloud.io` |
+| `AUTH0_CLIENT_ID` | Yes | From Cloud Portal credentials dialog |
+| `AUTH0_CLIENT_SECRET` | Yes | From Cloud Portal credentials dialog |
+| `AUTH0_AUDIENCE` | Yes | `https://api-webapp.sitecorecloud.io` |
+| `AUTH0_SCOPE` | Yes | `openid profile email offline_access` |
+| `APP_BASE_URL` | Yes | Public HTTPS URL of this deployment |
 | `UPSTASH_REDIS_REST_URL` | Yes (multi-tenant) | Redis endpoint |
 | `UPSTASH_REDIS_REST_TOKEN` | Yes (multi-tenant) | Redis auth |
 | `SETTINGS_ENCRYPTION_KEY` | Strongly recommended | AES key for JIRA tokens |
 | `PLUGIN_ADMIN_EMAILS` | Optional | Super-admin allowlist |
 | `MAX_ATTACHMENT_MB` | Optional | Upload cap (default 25) |
-| `ALLOW_STUB_TOKEN` | Interim | Set `1` on Preview only to bypass real auth for smoke-testing. Never set on Production. See [TODO-auth0-integration.md](./TODO-auth0-integration.md). |
+
+Auth0 credentials come from the Sitecore Cloud Portal
+"Create credentials for regular web app" dialog — see
+[auth0-cloud-portal-setup.md](./auth0-cloud-portal-setup.md)
+for the full walkthrough including the allowed callback /
+logout / origin URLs.
 
 Without the Upstash vars, the plugin falls back to an in-memory
 settings store that resets on every cold start — acceptable for
@@ -97,9 +109,17 @@ three scopes (Production, Preview, Development):
 - `ALLOWED_PLUGIN_ORIGIN` = `https://pages.sitecorecloud.io`
 - `SETTINGS_ENCRYPTION_KEY` = (paste key from step 4)
 - `PLUGIN_ADMIN_EMAILS` = (optional, comma-separated)
-- `ALLOW_STUB_TOKEN` = `1` **(Preview scope only, not Production)**
-  — required until Auth0 integration lands, see
-  [TODO-auth0-integration.md](./TODO-auth0-integration.md)
+- `AUTH0_SECRET` = (generate separately — 32 random bytes
+  base64, same command as step 4)
+- `AUTH0_DOMAIN` = `https://auth.sitecorecloud.io`
+- `AUTH0_CLIENT_ID`, `AUTH0_CLIENT_SECRET` = from the
+  Cloud Portal "Create credentials" dialog (see
+  [auth0-cloud-portal-setup.md](./auth0-cloud-portal-setup.md))
+- `AUTH0_AUDIENCE` = `https://api-webapp.sitecorecloud.io`
+- `AUTH0_SCOPE` = `openid profile email offline_access`
+- `APP_BASE_URL` = the public HTTPS URL of this deployment
+  (Production scope: the Vercel production URL; Preview
+  scope: leave unset and the SDK reads `VERCEL_URL`)
 
 ### 6. Deploy
 
@@ -164,11 +184,16 @@ environment scope. The store silently falls back to memory.
 
 ### Settings UI returns 401 on deployed app
 
-Expected until Auth0 integration lands. Interim fix: set
-`ALLOW_STUB_TOKEN=1` on the **Preview** environment scope
-and redeploy. Do **not** enable on Production — it disables
-auth. Tracking doc:
-[TODO-auth0-integration.md](./TODO-auth0-integration.md).
+Auth0 session cookie is missing or expired. The middleware
+should redirect to `/api/auth/login` automatically — if it
+doesn't, verify:
+
+- All seven `AUTH0_*` vars are set in the deployed scope
+- The callback URL registered in the Cloud Portal matches
+  `{APP_BASE_URL}/api/auth/callback` exactly
+- Cookies are not blocked by the parent iframe context
+  (Sitecore Pages needs `SameSite=None; Secure`, which the
+  plugin sets — check browser devtools)
 
 ### `Unauthorized` / `WRONGPASS` from Upstash
 

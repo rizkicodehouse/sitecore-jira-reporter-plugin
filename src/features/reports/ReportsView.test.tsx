@@ -53,7 +53,7 @@ describe("ReportsView", () => {
     expect(call[0]).toContain("limit=50");
     const headers = call[1].headers as Record<string, string>;
     expect(headers["X-Tenant-Id"]).toBe("acme");
-    expect(headers["X-Sdk-Token"]).toMatch(/^stub-valid/);
+    expect(call[1].credentials).toBe("include");
   });
 
   it("surfaces the server userMessage on error",

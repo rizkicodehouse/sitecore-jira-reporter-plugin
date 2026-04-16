@@ -59,7 +59,7 @@ describe("PagesPanel", () => {
 
   it("enables the report button once rendering selected",
      async () => {
-    render(<PagesPanel sdkTokenForTests="stub-valid" />);
+    render(<PagesPanel skipAuthForTests />);
     await waitFor(() =>
       expect(screen.getByRole("button",
         { name: /report bug/i })).toBeEnabled()
@@ -68,7 +68,7 @@ describe("PagesPanel", () => {
 
   it("opens dialog on click and submits successfully",
      async () => {
-    render(<PagesPanel sdkTokenForTests="stub-valid" />);
+    render(<PagesPanel skipAuthForTests />);
     await waitFor(() =>
       expect(screen.getByRole("button",
         { name: /report bug/i })).toBeEnabled()

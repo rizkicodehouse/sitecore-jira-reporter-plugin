@@ -8,7 +8,6 @@ import {
 } from "@/services/sitecore/context";
 
 type Identity = {
-  sdkToken: string;
   tenantId: string;
   userEmail: string;
   userName: string;
@@ -23,6 +22,7 @@ async function fetchReports(
     limit: String(limit)
   });
   const res = await fetch(`/api/reports?${qs}`, {
+    credentials: "include",
     headers: buildAuthHeaders(identity)
   });
   if (!res.ok) {
@@ -57,7 +57,6 @@ export const ReportsView: FC = () => {
     if (!isEmbedded) {
       // Dev / standalone: no Sitecore host to query.
       setIdentity({
-        sdkToken: "stub-valid-dev",
         tenantId,
         userEmail: "",
         userName: ""
@@ -95,7 +94,6 @@ export const ReportsView: FC = () => {
         const user = await getHostUser();
         if (cancelled) return;
         setIdentity({
-          sdkToken: "stub-valid-embedded-dev",
           tenantId,
           userEmail: user?.email ?? "",
           userName:
@@ -104,7 +102,6 @@ export const ReportsView: FC = () => {
       } catch {
         if (cancelled) return;
         setIdentity({
-          sdkToken: "stub-valid-dev",
           tenantId,
           userEmail: "",
           userName: ""

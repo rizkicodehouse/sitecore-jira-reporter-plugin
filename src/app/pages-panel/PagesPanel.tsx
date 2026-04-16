@@ -27,24 +27,42 @@ import {
 } from "@/services/screenshot/capture";
 
 export type PagesPanelProps = {
-  sdkTokenForTests?: string;
+  skipAuthForTests?: boolean;
 };
 
 export const PagesPanel: FC<PagesPanelProps> = (
-  { sdkTokenForTests }
+  { skipAuthForTests }
 ) => {
   const [sdkReady, setSdkReady] = useState(false);
   const [hasSelection, setHasSelection] = useState(false);
   const [open, setOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [sdkToken, setSdkToken] = useState(
-    sdkTokenForTests ?? ""
-  );
   const [activeInstanceId, setActiveInstanceId] =
     useState<string | undefined>();
   const [tenantId, setTenantId] = useState<string>("");
   const [userEmail, setUserEmail] = useState<string>("");
   const [userName, setUserName] = useState<string>("");
+
+  useEffect(() => {
+    if (skipAuthForTests) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/xmc/me", {
+          credentials: "include"
+        });
+        if (cancelled) return;
+        if (res.status === 401) {
+          const returnTo = encodeURIComponent(
+            window.location.pathname + window.location.search
+          );
+          window.location.href =
+            `/api/auth/login?returnTo=${returnTo}`;
+        }
+      } catch { /* let API errors surface through other paths */ }
+    })();
+    return () => { cancelled = true; };
+  }, [skipAuthForTests]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -71,11 +89,7 @@ export const PagesPanel: FC<PagesPanelProps> = (
   }, [sdkReady]);
 
   useEffect(() => {
-    if (sdkTokenForTests) {
-      // Test path: caller supplies sdkToken and is
-      // expected to vi.mock @/services/sitecore/context
-      // for query/subscribe behaviour. We just flip
-      // sdkReady so the rest of the panel renders.
+    if (skipAuthForTests) {
       setSdkReady(true);
       return;
     }
@@ -117,7 +131,6 @@ export const PagesPanel: FC<PagesPanelProps> = (
           }
         };
         initSitecoreContext(devStub);
-        setSdkToken("stub-valid-dev");
         setSdkReady(true);
         return;
       }
@@ -155,12 +168,9 @@ export const PagesPanel: FC<PagesPanelProps> = (
           )
       };
       initSitecoreContext(adapter);
-      if (!sdkTokenForTests) {
-        setSdkToken("stub-valid-embedded-dev");
-      }
       setSdkReady(true);
     })();
-  }, [sdkTokenForTests]);
+  }, [skipAuthForTests]);
 
   useEffect(() => {
     if (!sdkReady) return;
@@ -212,22 +222,20 @@ export const PagesPanel: FC<PagesPanelProps> = (
   }, [sdkReady]);
 
   const autoCtx = useAutoContext({
-    sdkToken,
     tenantId,
     userEmail,
     userName,
     activeRenderingInstanceId: activeInstanceId
   });
   const jira = new JiraClient({
-    sdkToken, tenantId, userEmail, userName
+    tenantId, userEmail, userName
   });
 
-  const identity = {
-    sdkToken, tenantId, userEmail, userName
-  };
+  const identity = { tenantId, userEmail, userName };
 
   async function loadSettings(): Promise<PublicSettings> {
     const res = await fetch("/api/settings", {
+      credentials: "include",
       headers: buildAuthHeaders(identity)
     });
     if (!res.ok) throw await toErr(res);
@@ -237,6 +245,7 @@ export const PagesPanel: FC<PagesPanelProps> = (
   async function saveSettings(next: SettingsUpdate) {
     const res = await fetch("/api/settings", {
       method: "PUT",
+      credentials: "include",
       headers: buildAuthHeaders(identity, {
         "Content-Type": "application/json"
       }),

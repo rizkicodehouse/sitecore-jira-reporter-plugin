@@ -8,7 +8,7 @@ describe("JiraClient", () => {
   beforeEach(() => { vi.stubGlobal("fetch", vi.fn()); });
   afterEach(() => { vi.stubGlobal("fetch", originalFetch); });
 
-  it("createIssue POSTs to /api/jira/issue with JSON body",
+  it("createIssue POSTs to /api/jira/issue with JSON body and credentials",
      async () => {
     (fetch as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(
       new Response(
@@ -16,7 +16,7 @@ describe("JiraClient", () => {
         { status: 201 }
       )
     );
-    const c = new JiraClient({ sdkToken: "stub-valid" });
+    const c = new JiraClient({ tenantId: "t-1" });
     const out = await c.createIssue({
       summary: "s", descriptionText: "d",
       context: {} as never, attachmentCount: 0
@@ -25,9 +25,10 @@ describe("JiraClient", () => {
       "/api/jira/issue",
       expect.objectContaining({
         method: "POST",
+        credentials: "include",
         headers: expect.objectContaining({
           "Content-Type": "application/json",
-          "X-Sdk-Token": "stub-valid"
+          "X-Tenant-Id": "t-1"
         })
       })
     );
@@ -48,7 +49,7 @@ describe("JiraClient", () => {
         { status: 401 }
       )
     );
-    const c = new JiraClient({ sdkToken: "stub-valid" });
+    const c = new JiraClient();
     await expect(c.createIssue({
       summary: "s", descriptionText: "",
       context: {} as never, attachmentCount: 0
@@ -64,7 +65,7 @@ describe("JiraClient", () => {
         { status: 201 }
       )
     );
-    const c = new JiraClient({ sdkToken: "stub-valid" });
+    const c = new JiraClient();
     const out = await c.uploadAttachment(
       "CLD-1", new Blob(["x"], { type: "image/png" })
     );
@@ -72,6 +73,7 @@ describe("JiraClient", () => {
     const [, init] = (fetch as unknown as ReturnType<typeof vi.fn>)
       .mock.calls[0]!;
     expect(init.method).toBe("POST");
+    expect(init.credentials).toBe("include");
     expect(init.body).toBeInstanceOf(FormData);
   });
 });

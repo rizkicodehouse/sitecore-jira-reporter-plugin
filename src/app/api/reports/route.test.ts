@@ -1,11 +1,18 @@
 import {
-  describe, it, expect, beforeEach
+  describe, it, expect, beforeEach, vi
 } from "vitest";
 import { GET } from "./route";
 import {
   getReportsStore, resetReportsStoreForTests,
   type ReportRecord
 } from "@/lib/reports-store";
+import { auth0 } from "@/lib/auth0";
+
+vi.mock("@/lib/auth0", () => ({
+  auth0: { getSession: vi.fn() }
+}));
+
+const getSessionMock = vi.mocked(auth0.getSession);
 
 const baseRecord: ReportRecord = {
   jiraKey: "CLD-1",
@@ -25,18 +32,20 @@ const baseRecord: ReportRecord = {
 
 const mkReq = (qs: string = "") =>
   new Request(`http://x/api/reports${qs}`, {
-    headers: {
-      "X-Sdk-Token": "stub-valid",
-      "X-Tenant-Id": "acme"
-    }
+    headers: { "X-Tenant-Id": "acme" }
   });
 
 describe("GET /api/reports", () => {
   beforeEach(() => {
     resetReportsStoreForTests();
+    getSessionMock.mockReset();
+    getSessionMock.mockResolvedValue({
+      user: { email: "dev@local", name: "Dev" }
+    } as never);
   });
 
-  it("401 without sdk token", async () => {
+  it("401 without session", async () => {
+    getSessionMock.mockResolvedValueOnce(null);
     const res = await GET(
       new Request("http://x/api/reports")
     );
@@ -45,9 +54,7 @@ describe("GET /api/reports", () => {
 
   it("400 without tenant", async () => {
     const res = await GET(
-      new Request("http://x/api/reports", {
-        headers: { "X-Sdk-Token": "stub-valid" }
-      })
+      new Request("http://x/api/reports")
     );
     expect(res.status).toBe(400);
   });
@@ -117,10 +124,7 @@ describe("GET /api/reports", () => {
     });
     const other = new Request(
       "http://x/api/reports",
-      { headers: {
-          "X-Sdk-Token": "stub-valid",
-          "X-Tenant-Id": "globex"
-      } }
+      { headers: { "X-Tenant-Id": "globex" } }
     );
     const res = await GET(other);
     const body = await res.json();

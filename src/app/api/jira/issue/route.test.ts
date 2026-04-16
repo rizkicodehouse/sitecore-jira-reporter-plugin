@@ -11,13 +11,19 @@ import {
   getSettingsStore, resetSettingsStoreForTests
 } from "@/lib/settings-store";
 import { resetCryptoForTests } from "@/lib/crypto";
+import { auth0 } from "@/lib/auth0";
+
+vi.mock("@/lib/auth0", () => ({
+  auth0: { getSession: vi.fn() }
+}));
+
+const getSessionMock = vi.mocked(auth0.getSession);
 
 const mkReq = (body: unknown) =>
   new Request("http://x/api/jira/issue", {
     method: "POST",
     headers: {
-      "Content-Type": "application/json",
-      "X-Sdk-Token": "stub-valid"
+      "Content-Type": "application/json"
     },
     body: JSON.stringify(body)
   });
@@ -29,7 +35,6 @@ const mkReqForTenant = (tenantId: string, body: unknown) =>
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "X-Sdk-Token": "stub-valid",
         "X-Tenant-Id": tenantId
       },
       body: JSON.stringify(body)
@@ -75,6 +80,10 @@ describe("POST /api/jira/issue", () => {
     vi.stubEnv("JIRA_SERVICE_EMAIL", "svc@x");
     vi.stubEnv("JIRA_API_TOKEN", "tok");
     vi.stubEnv("JIRA_DEFAULT_PROJECT_KEY", "CLD");
+    getSessionMock.mockReset();
+    getSessionMock.mockResolvedValue({
+      user: { email: "dev@local", name: "Dev" }
+    } as never);
   });
 
   it("creates issue on 201", async () => {

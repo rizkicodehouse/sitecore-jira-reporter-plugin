@@ -6,6 +6,13 @@ import {
 } from "vitest";
 import { POST } from "./route";
 import { resetJiraQueueForTests } from "@/lib/rate-limit";
+import { auth0 } from "@/lib/auth0";
+
+vi.mock("@/lib/auth0", () => ({
+  auth0: { getSession: vi.fn() }
+}));
+
+const getSessionMock = vi.mocked(auth0.getSession);
 
 const mkReq = () => {
   const fd = new FormData();
@@ -17,7 +24,6 @@ const mkReq = () => {
     "http://x/api/jira/attachment?issueKey=CLD-1",
     {
       method: "POST",
-      headers: { "X-Sdk-Token": "stub-valid" },
       body: fd
     }
   );
@@ -29,6 +35,10 @@ describe("POST /api/jira/attachment", () => {
     vi.stubEnv("JIRA_BASE_URL", "https://j.example.com");
     vi.stubEnv("JIRA_SERVICE_EMAIL", "svc@x");
     vi.stubEnv("JIRA_API_TOKEN", "tok");
+    getSessionMock.mockReset();
+    getSessionMock.mockResolvedValue({
+      user: { email: "dev@local", name: "Dev" }
+    } as never);
   });
 
   it("forwards multipart and returns attachment id",
@@ -48,9 +58,7 @@ describe("POST /api/jira/attachment", () => {
     fd.append("file", new Blob(["x"], { type: "image/png" }));
     const res = await POST(new Request(
       "http://x/api/jira/attachment",
-      { method: "POST",
-        headers: { "X-Sdk-Token": "stub-valid" },
-        body: fd }
+      { method: "POST", body: fd }
     ));
     expect(res.status).toBe(400);
   });

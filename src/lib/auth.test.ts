@@ -1,27 +1,51 @@
-// src/lib/auth.test.ts
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import {
+  describe, it, expect, beforeEach, vi
+} from "vitest";
 import { verifySdkSession, isAdminEmail } from "./auth";
+import { auth0 } from "./auth0";
+
+vi.mock("./auth0", () => ({
+  auth0: { getSession: vi.fn() }
+}));
+
+const getSessionMock = vi.mocked(auth0.getSession);
 
 describe("verifySdkSession", () => {
-  beforeEach(() => {
-    vi.stubEnv("MARKETPLACE_SDK_PUBLIC_KEY", "test-key");
-  });
+  beforeEach(() => getSessionMock.mockReset());
 
-  it("rejects requests with no header", async () => {
+  it("rejects when no session cookie present", async () => {
+    getSessionMock.mockResolvedValue(null);
     const req = new Request("http://x/api", { method: "GET" });
     const out = await verifySdkSession(req);
     expect(out.ok).toBe(false);
     if (!out.ok) expect(out.status).toBe(401);
   });
 
-  it("accepts requests with a valid token (stub)", async () => {
+  it("returns session user when Auth0 has one", async () => {
+    getSessionMock.mockResolvedValue({
+      user: { email: "ada@x.com", name: "Ada" }
+    } as never);
     const req = new Request("http://x/api", {
       method: "GET",
-      headers: { "X-Sdk-Token": "stub-valid" }
+      headers: { "X-Tenant-Id": "tenant-1" }
     });
     const out = await verifySdkSession(req);
     expect(out.ok).toBe(true);
-    if (out.ok) expect(out.session.email).toBeTypeOf("string");
+    if (out.ok) {
+      expect(out.session.email).toBe("ada@x.com");
+      expect(out.session.name).toBe("Ada");
+      expect(out.session.tenantId).toBe("tenant-1");
+    }
+  });
+
+  it("tenantId falls back to empty when header absent",
+     async () => {
+    getSessionMock.mockResolvedValue({
+      user: { email: "a@x", name: "A" }
+    } as never);
+    const req = new Request("http://x/api");
+    const out = await verifySdkSession(req);
+    if (out.ok) expect(out.session.tenantId).toBe("");
   });
 });
 
