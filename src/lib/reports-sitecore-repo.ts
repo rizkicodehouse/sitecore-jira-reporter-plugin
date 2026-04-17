@@ -98,7 +98,7 @@ async function fetchOffsetPage(args: {
     const page: import("@/services/sitecore/xmc").SearchPage =
       await args.client.searchItems({
         rootPath: bugReportsRootPath(args.tenant, args.site),
-        templateId: TEMPLATE_ID_BUG_REPORT,
+        templateName: "BugReport",
         first: batch,
         after: cursor
       });

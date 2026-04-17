@@ -41,7 +41,13 @@ export type UpdateItemArgs = {
 
 export type SearchArgs = {
   rootPath: string;
-  templateId: string;
+  // The search index filters by template NAME on the XMC
+  // authoring endpoint (the `_templatename` field). We
+  // used to filter by id, but resolving the template's
+  // Guid requires an item(where: {path}) round-trip to
+  // /sitecore/templates/... which is unreliable for
+  // template-folder items that lack language versions.
+  templateName: string;
   first: number;
   after?: string;
 };
@@ -174,26 +180,24 @@ export function createXmcClient(
       const data = await gql<{
         search: {
           totalCount: number;
-          pageInfo: { endCursor: string | null; hasNext: boolean };
-          results: Array<{ innerItem: {
+          results: Array<{
             itemId: string; path: string;
-            fields: { nodes: SitecoreField[] };
-          } }>;
+          }>;
         };
       }>(SEARCH_ITEMS_QUERY, {
-        rootItem: args.rootPath,
-        templates: args.templateId,
-        first: args.first,
-        after: args.after ?? null
+        templateName: args.templateName,
+        pageIndex: args.after
+          ? Number.parseInt(args.after, 10) || 0 : 0,
+        pageSize: args.first
       });
       return {
         totalCount: data.search.totalCount,
-        endCursor: data.search.pageInfo.endCursor,
-        hasNext: data.search.pageInfo.hasNext,
+        endCursor: null,
+        hasNext: false,
         items: data.search.results.map((r) => ({
-          itemId: r.innerItem.itemId,
-          path: r.innerItem.path,
-          fields: fieldsToMap(r.innerItem.fields.nodes)
+          itemId: r.itemId,
+          path: r.path,
+          fields: {}
         }))
       };
     },

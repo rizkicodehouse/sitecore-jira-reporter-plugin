@@ -96,7 +96,7 @@ describe("createSdkXmcClient", () => {
       data: {}
     })));
     const page = await client.searchItems({
-      rootPath: "/x", templateId: "tpl", first: 10
+      rootPath: "/x", templateName: "BugReport", first: 10
     });
     expect(page.totalCount).toBe(0);
     expect(page.hasNext).toBe(false);

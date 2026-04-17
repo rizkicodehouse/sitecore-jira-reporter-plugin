@@ -6,30 +6,23 @@
 // instance.
 
 import type { XmcClient } from "@/services/sitecore/xmc";
-import {
-  TEMPLATE_ID_BUG_REPORT, REPORT_FIELD
-} from "@/services/sitecore/templates";
-import {
-  BUG_REPORT_TEMPLATE_PATH
-} from "@/services/sitecore/template-provision";
+import { REPORT_FIELD } from "@/services/sitecore/templates";
 import {
   ReportRecordSchema, type ReportRecord
 } from "@/lib/reports-store";
 import type { ReportsPage } from "./types";
 
+// Template name the plugin creates during install. The
+// search index's `_templatename` field stores this string,
+// so filtering by name sidesteps resolving the template's
+// GUID via /sitecore/templates/... (unreliable for template-
+// folder items that lack language versions).
+const BUG_REPORT_TEMPLATE_NAME = "BugReport";
+
 export async function loadReportsFromXmc(
   client: XmcClient,
   { offset, limit }: { offset: number; limit: number }
 ): Promise<ReportsPage> {
-  // Resolve the real BugReport template id at read time —
-  // same reason as the write side: ensureFeatureTemplates
-  // assigns a fresh Guid per install, and the hardcoded
-  // constant is only a fallback when the template lookup
-  // fails.
-  const tplItem = await client.itemByPath(
-    BUG_REPORT_TEMPLATE_PATH
-  );
-  const templateId = tplItem?.itemId ?? TEMPLATE_ID_BUG_REPORT;
   const batch = Math.max(limit, 50);
   let cursor: string | undefined = undefined;
   let total = 0;
@@ -38,7 +31,7 @@ export async function loadReportsFromXmc(
   while (true) {
     const page = await client.searchItems({
       rootPath: "/sitecore/content",
-      templateId,
+      templateName: BUG_REPORT_TEMPLATE_NAME,
       first: batch,
       after: cursor
     });

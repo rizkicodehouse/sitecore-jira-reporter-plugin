@@ -100,19 +100,13 @@ describe("createXmcClient — CRUD helpers", () => {
     expect(spy).toHaveBeenCalledOnce();
   });
 
-  it("searchItems paginates via cursor", async () => {
+  it("searchItems returns totalCount + paths from the offset-based index", async () => {
     const mock = vi.fn(async () => ({
       ok: true,
       json: async () => ({
         data: { search: {
           totalCount: 1,
-          pageInfo: { endCursor: "c1", hasNext: false },
-          results: [{ innerItem: {
-            itemId: "a", path: "/p/a",
-            fields: { nodes: [
-              { name: "Summary", value: "x" }
-            ] }
-          } }]
+          results: [{ itemId: "a", path: "/p/a" }]
         } }
       })
     })) as unknown as typeof fetch;
@@ -121,10 +115,11 @@ describe("createXmcClient — CRUD helpers", () => {
     });
     const page = await client.searchItems({
       rootPath: "/sitecore/content/Demo/Data/Bug Reports",
-      templateId: "{bug-report-tpl}",
+      templateName: "BugReport",
       first: 50
     });
     expect(page.totalCount).toBe(1);
-    expect(page.items[0]?.fields.Summary).toBe("x");
+    expect(page.items[0]?.itemId).toBe("a");
+    expect(page.items[0]?.path).toBe("/p/a");
   });
 });
