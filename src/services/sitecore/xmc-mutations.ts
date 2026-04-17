@@ -79,18 +79,3 @@ export const SEARCH_ITEMS_QUERY = `
   }
 `;
 
-// Fetches the full field list for a given itemId.
-// SearchResultItem doesn't expose fields in the index, so we
-// rehydrate each result by its itemId via the normal item
-// resolver.
-export const ITEM_BY_ID_QUERY = `
-  query ItemById($itemId: String!) {
-    item(where: { itemId: $itemId }) {
-      itemId
-      path
-      fields(ownFields: false) {
-        nodes { name value }
-      }
-    }
-  }
-`;
