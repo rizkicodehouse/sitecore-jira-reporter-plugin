@@ -213,7 +213,7 @@ async function createTemplate(
     CREATE_TEMPLATE_MUTATION,
     { input: {
         name: input.name,
-        parent: parentItem.itemId,
+        parent: stripBraces(parentItem.itemId),
         sections: input.sections
     } }
   );

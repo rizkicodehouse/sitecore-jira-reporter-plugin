@@ -65,6 +65,15 @@ function fieldsToMap(
   return out;
 }
 
+// XMC Authoring's ID scalar parses as a GUID and rejects
+// Sitecore's braced form (e.g., "{A87A00B1-...}") with
+// "Unable to convert type from String to Guid". Our
+// template constants include braces because the REST/SIF
+// conventions keep them; strip before every mutation.
+function stripBraces(id: string): string {
+  return id.replace(/^\{|\}$/g, "");
+}
+
 export function createSdkXmcClient(
   client: MarketplaceMutator,
   // Edge-platform GraphQL routes by the tenant's
@@ -171,8 +180,8 @@ export function createSdkXmcClient(
       }>(CREATE_ITEM_MUTATION, {
         input: {
           name: args.name,
-          parent: parentItem.itemId,
-          templateId: args.templateId,
+          parent: stripBraces(parentItem.itemId),
+          templateId: stripBraces(args.templateId),
           language: args.language,
           fields: args.fields
         }

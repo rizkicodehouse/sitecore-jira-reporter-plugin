@@ -19,56 +19,92 @@ import {
 // GraphQL queries.
 
 const INTROSPECT_QUERIES: Record<string, string> = {
-  "Query fields": `
+  "SearchQueryInput fields": `
     query {
-      __type(name: "Query") {
-        name
-        fields {
-          name
-          args { name type { kind name ofType { kind name } } }
-          type { kind name ofType { kind name } }
-        }
-      }
-    }
-  `,
-  "CreateItemInput fields": `
-    query {
-      __type(name: "CreateItemInput") {
+      __type(name: "SearchQueryInput") {
         name kind
         inputFields {
           name
-          type { kind name ofType { kind name } }
+          type {
+            kind name
+            ofType {
+              kind name
+              ofType { kind name }
+            }
+          }
         }
       }
     }
   `,
-  "CreateItemTemplateInput fields": `
+  "Search result item shape": `
     query {
-      __type(name: "CreateItemTemplateInput") {
+      searchResultItem: __type(name: "ItemSearchResultItem") {
         name kind
-        inputFields {
-          name
-          type { kind name ofType { kind name } }
-        }
+        fields { name type { kind name ofType { kind name } } }
       }
-    }
-  `,
-  "SearchResult fields": `
-    query {
-      __type(name: "SearchResult") {
+      searchResultFacet: __type(name: "SearchResultFacetCategory") {
         name kind
         fields { name type { kind name ofType { kind name } } }
       }
     }
   `,
-  "Item descendants field": `
+  "FieldValueInput fields": `
     query {
-      __type(name: "Item") {
-        fields(includeDeprecated: true) {
+      __type(name: "FieldValueInput") {
+        name kind
+        inputFields {
           name
-          args { name type { kind name ofType { kind name } } }
           type { kind name ofType { kind name } }
         }
+      }
+    }
+  `,
+  "ItemTemplateSectionInput fields": `
+    query {
+      __type(name: "ItemTemplateSectionInput") {
+        name kind
+        inputFields {
+          name
+          type { kind name ofType { kind name } }
+        }
+      }
+    }
+  `,
+  "ItemTemplateFieldInput fields": `
+    query {
+      __type(name: "ItemTemplateFieldInput") {
+        name kind
+        inputFields {
+          name
+          type { kind name ofType { kind name } }
+        }
+      }
+    }
+  `,
+  "ItemConnection / edges shape": `
+    query {
+      connection: __type(name: "ItemConnection") {
+        name kind
+        fields {
+          name
+          type { kind name ofType { kind name } }
+        }
+      }
+      edge: __type(name: "ItemEdge") {
+        name kind
+        fields {
+          name
+          type { kind name ofType { kind name } }
+        }
+      }
+    }
+  `,
+  "Probe search call (empty query)": `
+    query {
+      search(query: {
+        paging: { pageIndex: 0, pageSize: 5 }
+      }) {
+        totalCount
       }
     }
   `
