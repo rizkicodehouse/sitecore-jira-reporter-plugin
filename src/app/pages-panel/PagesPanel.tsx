@@ -225,38 +225,52 @@ export const PagesPanel: FC<PagesPanelProps> = (
           )
       };
       initSitecoreContext(adapter);
-      // Read the SDK context (tenant / sitecoreContextId /
-      // auth token) once so server-bound fetches can
-      // forward it under the editor's session. Expose the
-      // raw SDK responses on window for production triage —
-      // "sitecore-context-missing" means one of these came
-      // back empty.
+      // Production triage hook. Updated at every step so
+      // "stage" tells us how far the SDK handshake got even
+      // if a later step throws. `sitecore-context-missing`
+      // means one of these came back empty.
+      const debugBag: Record<string, unknown> = {
+        stage: "sdk-initialised"
+      };
+      const publishDebug = () => {
+        if (typeof window !== "undefined") {
+          (window as unknown as {
+            __scPluginDebug?: unknown;
+          }).__scPluginDebug = debugBag;
+        }
+      };
+      publishDebug();
       try {
         const pagesCtx = await getPagesContext();
+        debugBag.pagesContext = pagesCtx;
+        debugBag.stage = "pages-context-loaded";
+        publishDebug();
         const siteName = pagesCtx?.siteInfo?.name ?? "";
-        let appCtxRaw: unknown = null;
+        debugBag.siteName = siteName;
         try {
           const appRes = await adapter.query(
             "application.context"
           );
-          appCtxRaw = appRes?.data ?? null;
+          debugBag.applicationContext = appRes?.data ?? null;
         } catch (e) {
-          appCtxRaw = { error: (e as Error).message };
+          debugBag.applicationContext = {
+            queryError: (e as Error).message
+          };
         }
+        debugBag.stage = "application-context-queried";
+        publishDebug();
         const resolved = siteName
           ? await readSdkContext(adapter, siteName)
           : null;
-        if (typeof window !== "undefined") {
-          (window as unknown as {
-            __scPluginDebug?: unknown;
-          }).__scPluginDebug = {
-            pagesContext: pagesCtx,
-            applicationContext: appCtxRaw,
-            resolvedSdkContext: resolved
-          };
-        }
+        debugBag.resolvedSdkContext = resolved;
+        debugBag.stage = "resolved";
+        publishDebug();
         setSdkContext(resolved);
-      } catch { /* non-fatal */ }
+      } catch (e) {
+        debugBag.error = (e as Error).message;
+        debugBag.stage = "threw";
+        publishDebug();
+      }
       setSdkReady(true);
     })();
   }, [skipAuthForTests]);
