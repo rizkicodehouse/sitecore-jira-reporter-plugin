@@ -15,6 +15,9 @@ import {
   parseSiteScopeFromPath, type SiteScope
 } from "@/services/sitecore/site-scope";
 import {
+  readSitecoreContextId
+} from "@/services/sitecore/context-id";
+import {
   InitialInstallationCard
 } from "./InitialInstallationCard";
 import { ReportBugButton } from
@@ -65,11 +68,15 @@ export const PagesPanel: FC<PagesPanelProps> = (
   const [authPolling, setAuthPolling] = useState(false);
   const [marketplaceClient, setMarketplaceClient] =
     useState<MarketplaceMutator | null>(null);
+  const [sitecoreContextId, setSitecoreContextId] =
+    useState<string | undefined>();
   const [siteScope, setSiteScope] =
     useState<SiteScope | null>(null);
   const [provisioned, setProvisioned] =
     useState<boolean | null>(null);
-  const xmcClient = useXmcClient(marketplaceClient);
+  const xmcClient = useXmcClient(
+    marketplaceClient, sitecoreContextId
+  );
 
   useEffect(() => {
     if (skipAuthForTests) return;
@@ -245,6 +252,8 @@ export const PagesPanel: FC<PagesPanelProps> = (
           pagesCtx?.pageInfo?.path
         );
         setSiteScope(scope);
+        const ctxId = await readSitecoreContextId(adapter);
+        setSitecoreContextId(ctxId);
       } catch { /* scope stays null */ }
       setSdkReady(true);
     })();

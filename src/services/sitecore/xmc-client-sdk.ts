@@ -29,6 +29,9 @@ type XmcGraphqlParams = {
     query: string;
     variables?: Record<string, unknown>;
   };
+  query?: {
+    sitecoreContextId?: string;
+  };
 };
 
 type XmcGraphqlResponse = {
@@ -52,7 +55,12 @@ function fieldsToMap(
 }
 
 export function createSdkXmcClient(
-  client: MarketplaceMutator
+  client: MarketplaceMutator,
+  // Edge-platform GraphQL routes by the tenant's
+  // sitecoreContextId passed as a query-string param. Without
+  // it the request hits /v1/authoring/graphql at the global
+  // edge and returns 404. Pulled from application.context.
+  sitecoreContextId?: string
 ): XmcClient {
   async function gql<T>(
     query: string,
@@ -60,7 +68,12 @@ export function createSdkXmcClient(
   ): Promise<T> {
     const res = await client.mutate(
       "xmc.authoring.graphql",
-      { params: { body: { query, variables } } }
+      { params: {
+          body: { query, variables },
+          ...(sitecoreContextId
+            ? { query: { sitecoreContextId } }
+            : {})
+      } }
     );
     if (res.errors && res.errors.length > 0) {
       const msg = res.errors

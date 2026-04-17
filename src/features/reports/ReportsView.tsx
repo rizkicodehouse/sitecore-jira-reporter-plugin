@@ -9,6 +9,9 @@ import { useXmcClient } from "@/hooks/useXmcClient";
 import type {
   MarketplaceMutator
 } from "@/services/sitecore/xmc-client-sdk";
+import {
+  readSitecoreContextId
+} from "@/services/sitecore/context-id";
 import { loadReportsFromXmc } from "./client-loader";
 
 type Identity = {
@@ -28,7 +31,11 @@ export const ReportsView: FC = () => {
   const [authPolling, setAuthPolling] = useState(false);
   const [marketplaceClient, setMarketplaceClient] =
     useState<MarketplaceMutator | null>(null);
-  const xmcClient = useXmcClient(marketplaceClient);
+  const [sitecoreContextId, setSitecoreContextId] =
+    useState<string | undefined>();
+  const xmcClient = useXmcClient(
+    marketplaceClient, sitecoreContextId
+  );
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -131,6 +138,8 @@ export const ReportsView: FC = () => {
             real as unknown as MarketplaceMutator
           );
         }
+        const ctxId = await readSitecoreContextId(adapter);
+        if (!cancelled) setSitecoreContextId(ctxId);
         const user = await getHostUser();
         if (cancelled) return;
         setIdentity({
