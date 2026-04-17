@@ -156,6 +156,18 @@ const INTROSPECT_QUERIES: Record<string, string> = {
       }
     }
   `,
+  "SearchOperator / SearchCriteriaType enum values": `
+    query {
+      searchOperator: __type(name: "SearchOperator") {
+        name kind
+        enumValues { name }
+      }
+      searchCriteriaType: __type(name: "SearchCriteriaType") {
+        name kind
+        enumValues { name }
+      }
+    }
+  `,
   "Probe search — return actual result shape": `
     query {
       search(query: {

@@ -1,5 +1,7 @@
 "use client";
-import { FC, ReactNode, useEffect, useState } from "react";
+import {
+  FC, ReactNode, useCallback, useEffect, useState
+} from "react";
 import {
   initSitecoreContext, getPagesContext,
   subscribeToLayoutChanges,
@@ -338,25 +340,38 @@ export const PagesPanel: FC<PagesPanelProps> = (
     };
   }
 
-  async function loadSettings(): Promise<PublicSettings> {
-    const ctx = resolveSettingsCtx();
-    try {
-      const res = await loadClientSettings(ctx);
-      setProvisioned(true);
-      return res;
-    } catch (e) {
-      const tag = (e as { category?: string })?.category;
-      if (tag === "not-provisioned") {
-        setProvisioned(false);
+  // useCallback-stable so SettingsView's load effect only
+  // fires once per dep change (xmcClient/siteScope/tenantId)
+  // instead of on every keystroke, which would otherwise
+  // overwrite the user's in-flight edits with the stored
+  // settings every render.
+  const loadSettings = useCallback(
+    async (): Promise<PublicSettings> => {
+      const ctx = resolveSettingsCtx();
+      try {
+        const res = await loadClientSettings(ctx);
+        setProvisioned(true);
+        return res;
+      } catch (e) {
+        const tag = (e as { category?: string })?.category;
+        if (tag === "not-provisioned") {
+          setProvisioned(false);
+        }
+        throw e;
       }
-      throw e;
-    }
-  }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [xmcClient, siteScope, tenantId, userEmail, userName]
+  );
 
-  async function saveSettings(next: SettingsUpdate) {
-    const ctx = resolveSettingsCtx();
-    return saveClientSettings(ctx, next);
-  }
+  const saveSettings = useCallback(
+    async (next: SettingsUpdate) => {
+      const ctx = resolveSettingsCtx();
+      return saveClientSettings(ctx, next);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [xmcClient, siteScope, tenantId, userEmail, userName]
+  );
 
   if (sessionState === "needs-login") {
     return (

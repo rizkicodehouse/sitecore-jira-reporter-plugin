@@ -53,7 +53,6 @@ export const SEARCH_ITEMS_QUERY = `
   ) {
     search(query: {
       filterStatement: {
-        operator: And
         criteria: [
           { field: "_path", value: $rootItem }
           { field: "_template", value: $templateId }
