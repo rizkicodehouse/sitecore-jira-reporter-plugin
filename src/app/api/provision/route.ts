@@ -31,15 +31,17 @@ export async function POST(req: Request) {
   const effectiveSite = site ||
     (isLocalXmcMode() ? "dev-site" : "");
 
-  if (!effectiveTenant || !effectiveSite) {
-    return NextResponse.json(
-      { error: "sitecore-context-missing" },
-      { status: 400 }
-    );
+  const missing: string[] = [];
+  if (!effectiveTenant) missing.push("tenant");
+  if (!effectiveSite) missing.push("site");
+  if (!isLocalXmcMode()) {
+    if (!contextId) missing.push("contextId");
+    if (!token) missing.push("token");
+    if (!baseUrl) missing.push("baseUrl");
   }
-  if (!isLocalXmcMode() && (!contextId || !token || !baseUrl)) {
+  if (missing.length > 0) {
     return NextResponse.json(
-      { error: "sitecore-context-missing" },
+      { error: "sitecore-context-missing", missing },
       { status: 400 }
     );
   }

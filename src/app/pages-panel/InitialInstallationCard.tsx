@@ -84,11 +84,21 @@ export function InitialInstallationCard(
         "/api/provision", { method: "POST" }
       );
       if (!r.ok) {
-        const b = await r.json().catch(() => ({}));
-        throw new Error(
-          typeof b.error === "string"
-            ? b.error : `HTTP ${r.status}`
+        const b = await r.json().catch(
+          () => ({} as Record<string, unknown>)
         );
+        const base = typeof b.error === "string"
+          ? b.error : `HTTP ${r.status}`;
+        const missing = Array.isArray(
+          (b as { missing?: unknown }).missing
+        )
+          ? ((b as { missing: unknown[] }).missing)
+              .filter((x): x is string => typeof x === "string")
+          : [];
+        const detail = missing.length
+          ? `${base} (missing: ${missing.join(", ")})`
+          : base;
+        throw new Error(detail);
       }
       // Snap to the final step, transition to success after
       // a short beat so the bar fill reads as completion

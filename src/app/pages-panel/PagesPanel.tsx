@@ -227,15 +227,35 @@ export const PagesPanel: FC<PagesPanelProps> = (
       initSitecoreContext(adapter);
       // Read the SDK context (tenant / sitecoreContextId /
       // auth token) once so server-bound fetches can
-      // forward it under the editor's session.
+      // forward it under the editor's session. Expose the
+      // raw SDK responses on window for production triage —
+      // "sitecore-context-missing" means one of these came
+      // back empty.
       try {
-        const ctx = await getPagesContext();
-        const siteName = ctx?.siteInfo?.name ?? "";
-        if (siteName) {
-          const resolved =
-            await readSdkContext(adapter, siteName);
-          setSdkContext(resolved);
+        const pagesCtx = await getPagesContext();
+        const siteName = pagesCtx?.siteInfo?.name ?? "";
+        let appCtxRaw: unknown = null;
+        try {
+          const appRes = await adapter.query(
+            "application.context"
+          );
+          appCtxRaw = appRes?.data ?? null;
+        } catch (e) {
+          appCtxRaw = { error: (e as Error).message };
         }
+        const resolved = siteName
+          ? await readSdkContext(adapter, siteName)
+          : null;
+        if (typeof window !== "undefined") {
+          (window as unknown as {
+            __scPluginDebug?: unknown;
+          }).__scPluginDebug = {
+            pagesContext: pagesCtx,
+            applicationContext: appCtxRaw,
+            resolvedSdkContext: resolved
+          };
+        }
+        setSdkContext(resolved);
       } catch { /* non-fatal */ }
       setSdkReady(true);
     })();
