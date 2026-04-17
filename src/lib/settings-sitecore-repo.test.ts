@@ -61,7 +61,7 @@ describe("settings-sitecore-repo", () => {
             "Target Board ID": "42",
             "Jira Base URL": "https://jira",
             "Service Account Email": "svc@x",
-            "API Token (Encrypted)": "ENCBLOB",
+            "API Token Encrypted": "ENCBLOB",
             "Admin Emails": "a@x,b@x"
           }
         }))
@@ -102,7 +102,7 @@ describe("settings-sitecore-repo", () => {
     expect(call?.fields).toEqual(
       expect.arrayContaining([
         { name: "Project Key", value: "SJP" },
-        { name: "API Token (Encrypted)", value: "ENC" }
+        { name: "API Token Encrypted", value: "ENC" }
       ])
     );
   });

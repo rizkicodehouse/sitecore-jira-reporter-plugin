@@ -11,6 +11,7 @@
 
 import {
   ITEM_BY_PATH_QUERY,
+  ITEM_BY_ID_QUERY,
   CREATE_ITEM_MUTATION,
   UPDATE_ITEM_MUTATION,
   SEARCH_ITEMS_QUERY
@@ -226,19 +227,68 @@ export function createSdkXmcClient(
     },
 
     async searchItems(args) {
-      // TODO: rewrite against the real XMC Authoring
-      // schema once confirmed via introspection. The
-      // `search(where, orderBy, first, after, pageInfo)`
-      // shape we had was copied from Content Delivery
-      // GraphQL and doesn't exist on the Authoring
-      // endpoint. Returning an empty page keeps the
-      // fullscreen reports UI on its "No bug reports yet"
-      // empty state while the schema is being verified.
-      void args;
-      void SEARCH_ITEMS_QUERY;
+      // XMC Authoring's search is offset-based. Consumers
+      // still pass `first` + optional `after` cursor, so
+      // translate the cursor to a pageIndex for the server.
+      const pageSize = args.first;
+      const pageIndex = args.after
+        ? Number.parseInt(args.after, 10) || 0
+        : 0;
+      const data = await gql<{
+        search?: {
+          totalCount?: number;
+          results?: Array<{
+            itemId?: string;
+            path?: string;
+          } | null> | null;
+        } | null;
+      }>(SEARCH_ITEMS_QUERY, {
+        rootItem: args.rootPath,
+        templateId: stripBraces(args.templateId),
+        pageIndex, pageSize
+      });
+      const search = data.search;
+      const totalCount = search?.totalCount ?? 0;
+      const results = (search?.results ?? [])
+        .filter((r): r is { itemId: string; path: string } =>
+          Boolean(r?.itemId && r?.path)
+        );
+      // SearchResultItem only carries itemId + path in the
+      // index — rehydrate full field values via the normal
+      // item resolver so downstream repos still get the
+      // shape they expect. Parallelised because the plugin
+      // caps a reports page at 50 items.
+      const items = await Promise.all(
+        results.map(async (r) => {
+          try {
+            const hydrated = await gql<{
+              item: null | {
+                itemId: string; path: string;
+                fields: { nodes: SitecoreField[] };
+              };
+            }>(ITEM_BY_ID_QUERY, { itemId: r.itemId });
+            if (!hydrated.item) return null;
+            return {
+              itemId: hydrated.item.itemId,
+              path: hydrated.item.path,
+              fields: fieldsToMap(hydrated.item.fields.nodes)
+            };
+          } catch {
+            return null;
+          }
+        })
+      );
+      const populated = items.filter(
+        (i): i is NonNullable<typeof i> => Boolean(i)
+      );
+      const nextPageIndex = pageIndex + 1;
+      const hasNext = populated.length === pageSize &&
+        pageIndex * pageSize + populated.length < totalCount;
       return {
-        totalCount: 0, endCursor: null,
-        hasNext: false, items: []
+        totalCount,
+        endCursor: hasNext ? String(nextPageIndex) : null,
+        hasNext,
+        items: populated
       };
     },
 

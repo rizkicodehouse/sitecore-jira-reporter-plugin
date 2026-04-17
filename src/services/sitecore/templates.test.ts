@@ -44,7 +44,7 @@ describe("sitecore templates", () => {
   it("enumerates field names used by the stores", () => {
     expect(SETTINGS_FIELD.projectKey).toBe("Project Key");
     expect(SETTINGS_FIELD.apiTokenEnc).toBe(
-      "API Token (Encrypted)"
+      "API Token Encrypted"
     );
     expect(REPORT_FIELD.ticketKey).toBe("Ticket Key");
     expect(REPORT_FIELD.createdAt).toBe("Created At");

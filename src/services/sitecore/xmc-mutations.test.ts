@@ -25,11 +25,14 @@ describe("xmc-mutations", () => {
     expect(UPDATE_ITEM_MUTATION).toContain("$input: UpdateItemInput!");
   });
 
-  it("SEARCH_ITEMS_QUERY supports rootItem/templateIds/pagination", () => {
+  it("SEARCH_ITEMS_QUERY uses the Authoring search schema", () => {
     expect(SEARCH_ITEMS_QUERY).toContain("query SearchItems");
     expect(SEARCH_ITEMS_QUERY).toContain("$rootItem: String!");
-    expect(SEARCH_ITEMS_QUERY).toContain("$templates: String!");
-    expect(SEARCH_ITEMS_QUERY).toContain("first: $first");
-    expect(SEARCH_ITEMS_QUERY).toContain("after: $after");
+    expect(SEARCH_ITEMS_QUERY).toContain("$templateId: String!");
+    expect(SEARCH_ITEMS_QUERY).toContain("$pageIndex: Int!");
+    expect(SEARCH_ITEMS_QUERY).toContain("$pageSize: Int!");
+    expect(SEARCH_ITEMS_QUERY).toContain("filterStatement");
+    expect(SEARCH_ITEMS_QUERY).toContain("criteria:");
+    expect(SEARCH_ITEMS_QUERY).toContain("paging:");
   });
 });

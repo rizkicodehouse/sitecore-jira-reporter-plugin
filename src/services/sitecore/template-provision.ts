@@ -50,7 +50,7 @@ const SETTINGS_TEMPLATE_SECTIONS = [
       { name: "Jira Base URL", type: "Single-Line Text" },
       { name: "Service Account Email",
         type: "Single-Line Text" },
-      { name: "API Token (Encrypted)",
+      { name: "API Token Encrypted",
         type: "Multi-Line Text" }
     ]
   },

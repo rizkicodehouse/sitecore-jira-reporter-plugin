@@ -38,7 +38,12 @@ export function bugReportsRootPath(
 export const SETTINGS_FIELD = {
   jiraBaseUrl: "Jira Base URL",
   serviceEmail: "Service Account Email",
-  apiTokenEnc: "API Token (Encrypted)",
+  // Avoid parenthesised suffix: Sitecore's item-name regex
+  // only allows "(N)" for numeric disambiguation. Template
+  // fields are stored as Sitecore items, so a name like
+  // "API Token (Encrypted)" fails ItemNameValidation during
+  // provisioning.
+  apiTokenEnc: "API Token Encrypted",
   projectKey: "Project Key",
   defaultIssueType: "Default Issue Type",
   defaultLabels: "Default Labels",
