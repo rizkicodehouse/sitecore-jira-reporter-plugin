@@ -26,7 +26,6 @@ export const ReportRecordSchema = z.object({
     placeholderKey: z.string().optional()
   }).nullable(),
   datasourceId: z.string().nullable(),
-  sprintAssigned: z.boolean(),
   createdAt: z.string()
 });
 export type ReportRecord = z.infer<typeof ReportRecordSchema>;

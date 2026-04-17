@@ -42,7 +42,6 @@ export const SETTINGS_FIELD = {
   projectKey: "Project Key",
   defaultIssueType: "Default Issue Type",
   defaultLabels: "Default Labels",
-  defaultAssignee: "Default Assignee Account Id",
   boardId: "Target Board ID",
   adminEmails: "Admin Emails"
 } as const;
@@ -54,10 +53,10 @@ export const REPORT_FIELD = {
   issueType: "Issue Type",
   pageItemId: "Page Item ID",
   pagePath: "Page Path",
+  pageTitle: "Page Title",
   renderingInstanceId: "Rendering Instance ID",
   renderingName: "Rendering Name",
   datasourceItemId: "Data Source Item ID",
   reporter: "Reporter",
-  createdAt: "Created At",
-  sprint: "Sprint"
+  createdAt: "Created At"
 } as const;

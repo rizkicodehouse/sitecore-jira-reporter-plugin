@@ -8,7 +8,6 @@ const basePublic = {
   projectKey: "CLD",
   defaultIssueType: "Bug",
   defaultLabels: ["page-builder"],
-  defaultAssigneeAccountId: null,
   defaultBoardId: null,
   jiraBaseUrl: "https://x.atlassian.net",
   jiraServiceEmail: "svc@x.com",

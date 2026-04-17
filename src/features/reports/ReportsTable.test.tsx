@@ -29,7 +29,6 @@ const mkRow = (
     templateName: "Hero"
   },
   datasourceId: "/sitecore/content/ds",
-  sprintAssigned: false,
   createdAt: "2026-04-16T10:30:00.000Z",
   ...overrides
 });
@@ -91,19 +90,6 @@ describe("ReportsTable", () => {
     expect(
       screen.getByText("HeroBanner")
     ).toBeInTheDocument();
-  });
-
-  it("shows Sprint badge when sprintAssigned", async () => {
-    const load = vi.fn().mockResolvedValue(mkPage([
-      mkRow({ sprintAssigned: true })
-    ]));
-    render(<ReportsTable load={load} />);
-    // "Sprint" appears in both the column header and the
-    // badge — expect at least two matches.
-    await waitFor(() => {
-      const matches = screen.getAllByText("Sprint");
-      expect(matches.length).toBeGreaterThanOrEqual(2);
-    });
   });
 
   it("shows em-dash when no rendering or reporter",

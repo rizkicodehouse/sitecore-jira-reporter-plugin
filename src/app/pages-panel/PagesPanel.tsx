@@ -463,7 +463,9 @@ export const PagesPanel: FC<PagesPanelProps> = (
                 s.projectKey, s.defaultIssueType
               )
             );
-          }} />
+          }}
+          searchUsers={(q) => jira.searchUsers(q)}
+          loadPriorities={() => jira.getPriorities()} />
       )}
     </PanelShell>
   );

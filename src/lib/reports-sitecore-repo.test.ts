@@ -21,7 +21,6 @@ const sample = {
     placeholderKey: "/main/tile"
   },
   datasourceId: "{33333333-3333-3333-3333-333333333333}",
-  sprintAssigned: true,
   createdAt: "2026-04-16T12:00:00.000Z"
 };
 
@@ -94,7 +93,6 @@ describe("reports-sitecore-repo", () => {
           "Issue Type": "Bug",
           "Reporter": "R <r@x>",
           "Created At": "2026-04-16T12:00:00.000Z",
-          "Sprint": "yes",
           "Page Item ID": "",
           "Page Path": "",
           "Rendering Instance ID": "",
@@ -110,6 +108,5 @@ describe("reports-sitecore-repo", () => {
       { offset: 0, limit: 50 });
     expect(page.total).toBe(1);
     expect(page.items[0]?.jiraKey).toBe("SJP-7");
-    expect(page.items[0]?.sprintAssigned).toBe(true);
   });
 });

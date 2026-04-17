@@ -1,4 +1,5 @@
 import { ReportsView } from "@/features/reports/ReportsView";
+import { ReportBugRedirect } from "./ReportBugRedirect";
 
 export default function FullScreen() {
   return (
@@ -31,6 +32,7 @@ export default function FullScreen() {
               for this tenant, newest first.
             </p>
           </div>
+          <ReportBugRedirect />
         </header>
 
         <section className="overflow-hidden rounded-2xl border border-primary-100 bg-white/80 shadow-[0_30px_80px_-30px_rgba(110,63,255,0.35)] backdrop-blur-md">

@@ -45,7 +45,13 @@ const BodySchema = z.object({
   descriptionText: z.string().max(10_000),
   context: ContextSchema,
   attachmentCount: z.number().int().min(0),
-  customFields: z.record(z.unknown()).optional()
+  customFields: z.record(z.unknown()).optional(),
+  assignee: z.object({
+    accountId: z.string().min(1)
+  }).nullable().optional(),
+  priority: z.object({
+    id: z.string().min(1)
+  }).nullable().optional()
 });
 
 export async function POST(req: Request) {
@@ -100,9 +106,9 @@ export async function POST(req: Request) {
   const labels = settings
     ? settings.defaultLabels
     : ["page-builder"];
-  const assignee = settings
-    ? settings.defaultAssigneeAccountId
-    : null;
+  const assigneeAccountId =
+    parsed.assignee?.accountId ?? null;
+  const priorityId = parsed.priority?.id ?? null;
   const description = buildDescription({
     description: parsed.descriptionText,
     reporter: parsed.context.reporter,
@@ -132,8 +138,11 @@ export async function POST(req: Request) {
     summary: parsed.summary,
     description,
     labels,
-    ...(assignee
-      ? { assignee: { accountId: assignee } }
+    ...(assigneeAccountId
+      ? { assignee: { accountId: assigneeAccountId } }
+      : {}),
+    ...(priorityId
+      ? { priority: { id: priorityId } }
       : {})
   };
   const authHeader = basicAuthHeader(
@@ -218,7 +227,6 @@ export async function POST(req: Request) {
       }
     }
     const boardId = settings?.defaultBoardId ?? null;
-    let sprintAssigned = false;
     if (boardId) {
       try {
         const info = await getBoardSprintInfo(
@@ -228,7 +236,7 @@ export async function POST(req: Request) {
           boardId
         );
         if (info.activeSprintId) {
-          sprintAssigned = await addIssueToSprint(
+          await addIssueToSprint(
             creds.baseUrl,
             creds.serviceEmail,
             creds.apiToken,
@@ -270,7 +278,6 @@ export async function POST(req: Request) {
             : null,
           datasourceId:
             parsed.context.rendering?.dataSource ?? null,
-          sprintAssigned,
           createdAt: new Date().toISOString()
         });
       } catch (e) {
@@ -287,8 +294,7 @@ export async function POST(req: Request) {
     }
     return NextResponse.json({
       key: created.key,
-      url: jiraUrl,
-      sprintAssigned
+      url: jiraUrl
     }, { status: 201 });
   } catch {
     return respondError(502, {
@@ -315,7 +321,7 @@ function respondError(
 const RESERVED_FIELDS = new Set([
   "project", "issuetype", "summary", "description",
   "labels", "assignee", "reporter", "attachment",
-  "comment"
+  "comment", "priority"
 ]);
 
 function sanitizeCustomFields(

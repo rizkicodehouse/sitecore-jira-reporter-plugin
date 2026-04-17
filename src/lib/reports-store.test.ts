@@ -20,7 +20,6 @@ const baseRecord: ReportRecord = {
     name: "HeroBanner", templateName: "Hero"
   },
   datasourceId: "{GUID}",
-  sprintAssigned: false,
   createdAt: "2026-04-16T00:00:00.000Z"
 };
 
@@ -153,7 +152,6 @@ describe("ReportsStore — sitecore driver", () => {
     issueType: "Bug",
     reporter: { email: "r@x", name: "R" },
     page: null, rendering: null, datasourceId: null,
-    sprintAssigned: false,
     createdAt: "2026-04-16T00:00:00Z"
   };
 

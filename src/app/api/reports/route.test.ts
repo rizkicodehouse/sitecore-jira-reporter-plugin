@@ -26,7 +26,6 @@ const baseRecord: ReportRecord = {
   },
   rendering: null,
   datasourceId: null,
-  sprintAssigned: false,
   createdAt: "2026-04-16T00:00:00.000Z"
 };
 

@@ -38,7 +38,6 @@ const validUpdate = {
   projectKey: "OPS",
   defaultIssueType: "Task",
   defaultLabels: ["x"],
-  defaultAssigneeAccountId: null,
   defaultBoardId: null,
   jiraBaseUrl: "https://x.atlassian.net",
   jiraServiceEmail: "svc@x.com",

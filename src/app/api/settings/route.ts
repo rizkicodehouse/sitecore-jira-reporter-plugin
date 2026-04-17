@@ -14,13 +14,6 @@ import {
 import {
   createSettingsSitecoreRepo
 } from "@/lib/settings-sitecore-repo";
-import {
-  resolveJiraUserByEmail,
-  looksLikeAccountId,
-  looksLikeEmail,
-  JiraUserLookupError
-} from "@/lib/jira-user-search";
-
 type SitecoreRequestContext = {
   tenant: string;
   site: string;
@@ -135,52 +128,7 @@ export async function PUT(req: Request) {
   catch { return json400("invalid-json"); }
   const parsed = SettingsUpdateSchema.safeParse(body);
   if (!parsed.success) return json400("invalid-shape");
-  const update = { ...parsed.data };
-  const rawAssignee =
-    update.defaultAssigneeAccountId?.trim() ?? "";
-  if (rawAssignee && !looksLikeAccountId(rawAssignee)) {
-    if (!looksLikeEmail(rawAssignee)) {
-      return json400("assignee-bad-format");
-    }
-    const effectiveBase = update.jiraBaseUrl
-      || current.jiraBaseUrl;
-    const effectiveEmail = update.jiraServiceEmail
-      || current.jiraServiceEmail;
-    const effectiveToken =
-      update.jiraApiToken
-      || (current.jiraApiTokenEnc
-            ? await store.getDecryptedApiToken(tenantId)
-            : "");
-    try {
-      const user = await resolveJiraUserByEmail(
-        effectiveBase,
-        effectiveEmail,
-        effectiveToken,
-        rawAssignee
-      );
-      update.defaultAssigneeAccountId = user.accountId;
-    } catch (e) {
-      if (e instanceof JiraUserLookupError) {
-        return NextResponse.json(
-          { error: {
-              category:
-                e.reason === "auth" ? "permission"
-                  : e.reason === "not-found" ||
-                    e.reason === "bad-creds" ||
-                    e.reason === "ambiguous"
-                    ? "config"
-                    : "retryable",
-              userMessage: e.message,
-              logCode: `settings.put.assignee.${e.reason}`
-          } },
-          { status: e.reason === "auth" ? 401 : 400 }
-        );
-      }
-      throw e;
-    }
-  } else if (rawAssignee === "") {
-    update.defaultAssigneeAccountId = null;
-  }
+  const update = parsed.data;
   try {
     const saved = await store.put(tenantId, update);
     return NextResponse.json(saved);

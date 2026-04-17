@@ -123,7 +123,6 @@ export const ReportsTable: FC<ReportsTableProps> = (
               <TableHead className={HEAD_CELL}>Component</TableHead>
               <TableHead className={HEAD_CELL}>Reporter</TableHead>
               <TableHead className={HEAD_CELL}>Created</TableHead>
-              <TableHead className={HEAD_CELL}>Sprint</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -212,13 +211,13 @@ const TableReportRow: FC<{ row: ReportRow; zebra: boolean }> = (
         </Badge>
       </TableCell>
       <TableCell>
-        {row.page
+        {pageLabel(row.page)
           ? (
-            <a href={row.page.url} target="_blank" rel="noreferrer"
-               className="block max-w-[16rem] truncate font-medium text-cyan-700 hover:text-cyan-800 hover:underline"
-               title={row.page.url}>
-              {row.page.title || row.page.url}
-            </a>
+            <span
+              title={row.page?.url ?? undefined}
+              className="block max-w-[16rem] truncate font-medium text-gray-800">
+              {pageLabel(row.page)}
+            </span>
           )
           : <span className="text-gray-300">—</span>}
       </TableCell>
@@ -231,16 +230,6 @@ const TableReportRow: FC<{ row: ReportRow; zebra: boolean }> = (
       </TableCell>
       <TableCell className="tabular-nums text-gray-500">
         {formatDate(row.createdAt)}
-      </TableCell>
-      <TableCell>
-        {row.sprintAssigned
-          ? (
-            <Badge variant="bold" colorScheme="success"
-              className="text-2xs tracking-wide">
-              Sprint
-            </Badge>
-          )
-          : <span className="text-gray-300">—</span>}
       </TableCell>
     </TableRow>
   );
@@ -265,6 +254,26 @@ const ReporterChip: FC<{ label: string }> = ({ label }) => {
     </span>
   );
 };
+
+function pageLabel(
+  page: { title: string; url: string } | null
+): string {
+  if (!page) return "";
+  if (page.title.trim()) return page.title.trim();
+  const url = page.url.trim();
+  if (!url) return "";
+  try {
+    const parsed = url.startsWith("http")
+      ? new URL(url)
+      : new URL(url, "http://x");
+    const site = parsed.searchParams.get("sc_site");
+    const path = parsed.pathname === "/" || !parsed.pathname
+      ? "Home" : parsed.pathname;
+    return site ? `${path} · ${site}` : path;
+  } catch {
+    return url;
+  }
+}
 
 function formatDate(iso: string): string {
   const d = new Date(iso);

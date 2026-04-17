@@ -32,7 +32,6 @@ describe("ReportsView", () => {
           },
           rendering: null,
           datasourceId: null,
-          sprintAssigned: false,
           createdAt: "2026-04-16T00:00:00.000Z"
         }],
         total: 1, offset: 0, limit: 50

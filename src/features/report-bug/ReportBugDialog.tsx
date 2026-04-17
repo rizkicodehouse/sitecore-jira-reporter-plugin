@@ -13,6 +13,12 @@ import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
+import {
+  AssigneePicker, type AssigneeUser
+} from "./AssigneePicker";
+import {
+  PriorityPicker, type JiraPriority
+} from "./PriorityPicker";
 
 type SubmitFn = (input: {
   summary: string;
@@ -20,6 +26,8 @@ type SubmitFn = (input: {
   context: ReportContext;
   attachmentCount: number;
   customFields?: Record<string, unknown>;
+  assignee?: { accountId: string } | null;
+  priority?: { id: string } | null;
 }) => Promise<{ key: string; url: string }>;
 
 type UploadFn = (issueKey: string, blob: Blob) =>
@@ -27,6 +35,10 @@ type UploadFn = (issueKey: string, blob: Blob) =>
 
 type MetaLoader = () =>
   Promise<{ fields: NormalizedField[] }>;
+
+type UserSearchFn = (q: string) => Promise<AssigneeUser[]>;
+
+type PriorityLoader = () => Promise<JiraPriority[]>;
 
 type Attachment = {
   id: string; source: "capture" | "upload";
@@ -40,11 +52,14 @@ export type ReportBugDialogProps = {
   onClose: () => void;
   captureScreen?: () => Promise<Blob | null>;
   loadCreateMeta?: MetaLoader;
+  searchUsers?: UserSearchFn;
+  loadPriorities?: PriorityLoader;
 };
 
 export const ReportBugDialog: FC<ReportBugDialogProps> = (
   { context, submit, uploadAttachment,
-    onClose, captureScreen, loadCreateMeta }
+    onClose, captureScreen, loadCreateMeta, searchUsers,
+    loadPriorities }
 ) => {
   const PAGE_LEVEL = "__page_level__";
   const [summary, setSummary] = useState("");
@@ -66,6 +81,10 @@ export const ReportBugDialog: FC<ReportBugDialogProps> = (
     useState<string | null>(null);
   const [dynamicValues, setDynamicValues] =
     useState<Record<string, unknown>>({});
+  const [assignee, setAssignee] =
+    useState<AssigneeUser | null>(null);
+  const [priority, setPriority] =
+    useState<JiraPriority | null>(null);
 
   useEffect(() => {
     if (!loadCreateMeta) return;
@@ -130,7 +149,13 @@ export const ReportBugDialog: FC<ReportBugDialogProps> = (
         context: scopedContext,
         attachmentCount: attach.length,
         customFields: Object.keys(customFields).length
-          ? customFields : undefined
+          ? customFields : undefined,
+        assignee: assignee
+          ? { accountId: assignee.accountId }
+          : null,
+        priority: priority
+          ? { id: priority.id }
+          : null
       });
       for (const a of attach) {
         try { await uploadAttachment(result.key, a.blob); }
@@ -231,6 +256,22 @@ export const ReportBugDialog: FC<ReportBugDialogProps> = (
           onChange={(e) => setDesc(e.target.value)} rows={5} />
       </div>
 
+      {searchUsers && (
+        <AssigneePicker
+          value={assignee}
+          onChange={setAssignee}
+          search={searchUsers}
+        />
+      )}
+
+      {loadPriorities && (
+        <PriorityPicker
+          value={priority}
+          onChange={setPriority}
+          load={loadPriorities}
+        />
+      )}
+
       {metaLoading && (
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <Spinner className="h-3 w-3" /> Loading Jira field schema…
@@ -328,7 +369,8 @@ export const ReportBugDialog: FC<ReportBugDialogProps> = (
 // dynamic input (we'd collide with ourselves).
 const BUILTIN_FIELD_KEYS = new Set([
   "summary", "description", "labels", "project",
-  "issuetype", "assignee", "reporter", "attachment"
+  "issuetype", "assignee", "reporter", "attachment",
+  "priority"
 ]);
 
 function hasDynamicValue(v: unknown): boolean {

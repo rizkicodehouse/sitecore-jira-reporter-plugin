@@ -18,7 +18,6 @@ export type ReportRow = {
     placeholderKey?: string;
   } | null;
   datasourceId: string | null;
-  sprintAssigned: boolean;
   createdAt: string;
 };
 

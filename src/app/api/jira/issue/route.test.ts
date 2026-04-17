@@ -46,7 +46,6 @@ async function seedTenantCreds(tenantId: string) {
     projectKey: "CLD",
     defaultIssueType: "Bug",
     defaultLabels: ["page-builder"],
-    defaultAssigneeAccountId: null,
     defaultBoardId: null,
     jiraBaseUrl: "https://j.example.com",
     jiraServiceEmail: "svc@x",
@@ -127,7 +126,6 @@ describe("POST /api/jira/issue", () => {
     expect(first.summary).toBe("Hero broken");
     expect(first.rendering?.name).toBe("Hero");
     expect(first.datasourceId).toBe("/sitecore/content/ds");
-    expect(first.sprintAssigned).toBe(false);
   });
 
   it("does not persist when JIRA create fails",
@@ -155,5 +153,63 @@ describe("POST /api/jira/issue", () => {
     const bad = { ...validBody, summary: "" };
     const res = await POST(mkReq(bad));
     expect(res.status).toBe(400);
+  });
+
+  it("forwards priority.id when provided", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({
+        key: "CLD-9", id: "12", self: "http://j/CLD-9"
+      }), { status: 201 })
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const res = await POST(mkReq({
+      ...validBody,
+      priority: { id: "3" }
+    }));
+    expect(res.status).toBe(201);
+    const call = fetchMock.mock.calls[0]!;
+    const body = JSON.parse(
+      (call[1] as RequestInit).body as string
+    );
+    expect(body.fields.priority).toEqual({ id: "3" });
+  });
+
+  it("omits priority when null", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({
+        key: "CLD-10", id: "13", self: "http://j/CLD-10"
+      }), { status: 201 })
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const res = await POST(mkReq({
+      ...validBody,
+      priority: null
+    }));
+    expect(res.status).toBe(201);
+    const body = JSON.parse(
+      (fetchMock.mock.calls[0]![1] as RequestInit)
+        .body as string
+    );
+    expect(body.fields.priority).toBeUndefined();
+  });
+
+  it("ignores client-supplied priority in customFields",
+     async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({
+        key: "CLD-11", id: "14", self: "http://j/CLD-11"
+      }), { status: 201 })
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const res = await POST(mkReq({
+      ...validBody,
+      customFields: { priority: { id: "999" } }
+    }));
+    expect(res.status).toBe(201);
+    const body = JSON.parse(
+      (fetchMock.mock.calls[0]![1] as RequestInit)
+        .body as string
+    );
+    expect(body.fields.priority).toBeUndefined();
   });
 });

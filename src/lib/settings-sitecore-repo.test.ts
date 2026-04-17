@@ -58,7 +58,6 @@ describe("settings-sitecore-repo", () => {
             "Project Key": "SJP",
             "Default Issue Type": "Bug",
             "Default Labels": "page-builder,urgent",
-            "Default Assignee Account Id": "",
             "Target Board ID": "42",
             "Jira Base URL": "https://jira",
             "Service Account Email": "svc@x",

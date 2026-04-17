@@ -83,8 +83,6 @@ function fromFields(
       || DEFAULT_SETTINGS.defaultIssueType,
     defaultLabels: labels.length
       ? labels : DEFAULT_SETTINGS.defaultLabels,
-    defaultAssigneeAccountId:
-      (f[SETTINGS_FIELD.defaultAssignee] || null) || null,
     defaultBoardId:
       Number.isFinite(board) && (board as number) > 0
         ? (board as number) : null,
@@ -103,8 +101,6 @@ function toFields(v: StoredSettings): SitecoreField[] {
       value: v.defaultIssueType },
     { name: SETTINGS_FIELD.defaultLabels,
       value: v.defaultLabels.join(",") },
-    { name: SETTINGS_FIELD.defaultAssignee,
-      value: v.defaultAssigneeAccountId ?? "" },
     { name: SETTINGS_FIELD.boardId,
       value: v.defaultBoardId == null
         ? "" : String(v.defaultBoardId) },

@@ -127,6 +127,8 @@ function toFields(r: ReportRecord): SitecoreField[] {
       value: r.page ? "" : "" },
     { name: REPORT_FIELD.pagePath,
       value: r.page?.url ?? "" },
+    { name: REPORT_FIELD.pageTitle,
+      value: r.page?.title ?? "" },
     { name: REPORT_FIELD.renderingInstanceId,
       value: r.rendering?.instanceId ?? "" },
     { name: REPORT_FIELD.renderingName,
@@ -134,9 +136,7 @@ function toFields(r: ReportRecord): SitecoreField[] {
     { name: REPORT_FIELD.datasourceItemId,
       value: r.datasourceId ?? "" },
     { name: REPORT_FIELD.reporter, value: reporter },
-    { name: REPORT_FIELD.createdAt, value: r.createdAt },
-    { name: REPORT_FIELD.sprint,
-      value: r.sprintAssigned ? "yes" : "no" }
+    { name: REPORT_FIELD.createdAt, value: r.createdAt }
   ];
 }
 
@@ -151,9 +151,12 @@ function fromFields(
     summary: f[REPORT_FIELD.summary] ?? "",
     issueType: f[REPORT_FIELD.issueType] ?? "",
     reporter: parsedReporter,
-    page: f[REPORT_FIELD.pagePath]
-      ? { title: "", url: f[REPORT_FIELD.pagePath] ?? "",
-          language: "", site: "" }
+    page: f[REPORT_FIELD.pagePath] || f[REPORT_FIELD.pageTitle]
+      ? {
+          title: f[REPORT_FIELD.pageTitle] ?? "",
+          url: f[REPORT_FIELD.pagePath] ?? "",
+          language: "", site: ""
+        }
       : null,
     rendering: f[REPORT_FIELD.renderingInstanceId]
       ? {
@@ -163,9 +166,6 @@ function fromFields(
         }
       : null,
     datasourceId: f[REPORT_FIELD.datasourceItemId] || null,
-    sprintAssigned:
-      (f[REPORT_FIELD.sprint] ?? "").toLowerCase()
-        === "yes",
     createdAt: f[REPORT_FIELD.createdAt] ?? ""
   };
   const result = ReportRecordSchema.safeParse(candidate);

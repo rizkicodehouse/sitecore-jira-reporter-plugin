@@ -61,8 +61,6 @@ const SETTINGS_TEMPLATE_SECTIONS = [
       { name: "Default Issue Type",
         type: "Single-Line Text" },
       { name: "Default Labels", type: "Multi-Line Text" },
-      { name: "Default Assignee Account Id",
-        type: "Single-Line Text" },
       { name: "Target Board ID", type: "Single-Line Text" }
     ]
   },
@@ -89,6 +87,7 @@ const BUG_REPORT_TEMPLATE_SECTIONS = [
     fields: [
       { name: "Page Item ID", type: "Single-Line Text" },
       { name: "Page Path", type: "Single-Line Text" },
+      { name: "Page Title", type: "Single-Line Text" },
       { name: "Rendering Instance ID",
         type: "Single-Line Text" },
       { name: "Rendering Name", type: "Single-Line Text" },
@@ -100,8 +99,7 @@ const BUG_REPORT_TEMPLATE_SECTIONS = [
     name: "Audit",
     fields: [
       { name: "Reporter", type: "Single-Line Text" },
-      { name: "Created At", type: "Datetime" },
-      { name: "Sprint", type: "Single-Line Text" }
+      { name: "Created At", type: "Datetime" }
     ]
   }
 ];

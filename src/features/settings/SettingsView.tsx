@@ -11,7 +11,6 @@ export type PublicSettings = {
   projectKey: string;
   defaultIssueType: string;
   defaultLabels: string[];
-  defaultAssigneeAccountId: string | null;
   defaultBoardId: number | null;
   jiraBaseUrl: string;
   jiraServiceEmail: string;
@@ -23,7 +22,6 @@ export type SettingsUpdate = {
   projectKey: string;
   defaultIssueType: string;
   defaultLabels: string[];
-  defaultAssigneeAccountId: string | null;
   defaultBoardId: number | null;
   jiraBaseUrl: string;
   jiraServiceEmail: string;
@@ -63,7 +61,6 @@ export const SettingsView: FC<SettingsViewProps> = ({ load, save }) => {
       projectKey: value!.projectKey,
       defaultIssueType: value!.defaultIssueType,
       defaultLabels: value!.defaultLabels,
-      defaultAssigneeAccountId: value!.defaultAssigneeAccountId,
       defaultBoardId: value!.defaultBoardId,
       jiraBaseUrl: value!.jiraBaseUrl,
       jiraServiceEmail: value!.jiraServiceEmail,
@@ -196,27 +193,6 @@ export const SettingsView: FC<SettingsViewProps> = ({ load, save }) => {
             })
           }
         />
-      </div>
-
-      <div className="space-y-1.5">
-        <Label htmlFor="defaultAssignee">
-          Default assignee (email or accountId, optional)
-        </Label>
-        <Input
-          id="defaultAssignee"
-          placeholder="alice@co.com or 5c1aed…"
-          value={value.defaultAssigneeAccountId ?? ""}
-          onChange={(e) =>
-            setValue({
-              ...value,
-              defaultAssigneeAccountId: e.target.value || null,
-            })
-          }
-        />
-        <p className="text-xs text-muted-foreground mt-1">
-          Enter an email and we&apos;ll look up the Jira accountId on save
-          (requires valid Jira creds above).
-        </p>
       </div>
 
       <div className="space-y-1.5">
