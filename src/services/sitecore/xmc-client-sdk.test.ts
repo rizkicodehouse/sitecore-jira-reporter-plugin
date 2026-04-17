@@ -9,12 +9,15 @@ function mutatorWith(
     { data?: Record<string, unknown>; errors?: Array<{ message?: string }> }
 ): MarketplaceMutator {
   return {
-    mutate: vi.fn(async (_key, opts) => {
-      return handler(
+    // ClientSDK.mutate wraps the GraphQL envelope inside the
+    // hey-api fetch-client result shape. Mirror that here so
+    // the adapter's unwrapping is exercised.
+    mutate: vi.fn(async (_key, opts) => ({
+      data: handler(
         opts.params.body.query,
         opts.params.body.variables
-      );
-    })
+      )
+    }))
   };
 }
 

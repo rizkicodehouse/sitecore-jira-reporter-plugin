@@ -34,16 +34,27 @@ type XmcGraphqlParams = {
   };
 };
 
-type XmcGraphqlResponse = {
+// Shape returned by ClientSDK.mutate: the hey-api fetch
+// client's result envelope. `data` is the full GraphQL
+// envelope `{ data, errors }` (yes, nested — don't conflate
+// with the outer wrapper).
+type XmcGraphqlEnvelope = {
   data?: Record<string, unknown>;
   errors?: Array<{ message?: string }>;
+};
+
+type HeyApiResult<T> = {
+  data?: T;
+  error?: unknown;
+  request?: Request;
+  response?: Response;
 };
 
 export type MarketplaceMutator = {
   mutate: (
     key: "xmc.authoring.graphql",
     options: { params: XmcGraphqlParams }
-  ) => Promise<XmcGraphqlResponse>;
+  ) => Promise<HeyApiResult<XmcGraphqlEnvelope>>;
 };
 
 function fieldsToMap(
@@ -75,13 +86,31 @@ export function createSdkXmcClient(
             : {})
       } }
     );
-    if (res.errors && res.errors.length > 0) {
-      const msg = res.errors
+    if (res.error) {
+      throw new Error(
+        `XMC transport error: ${describeTransportError(res.error)}`
+      );
+    }
+    const envelope = res.data;
+    if (!envelope) {
+      throw new Error("XMC: no GraphQL envelope in response");
+    }
+    if (envelope.errors && envelope.errors.length > 0) {
+      const msg = envelope.errors
         .map((e) => e.message).filter(Boolean).join("; ");
       throw new Error(`XMC GraphQL: ${msg || "error"}`);
     }
-    if (!res.data) throw new Error("XMC empty data");
-    return res.data as T;
+    if (!envelope.data) {
+      throw new Error("XMC GraphQL: empty data");
+    }
+    return envelope.data as T;
+  }
+
+  function describeTransportError(err: unknown): string {
+    if (err instanceof Error) return err.message;
+    if (typeof err === "string") return err;
+    try { return JSON.stringify(err); }
+    catch { return String(err); }
   }
 
   return {
@@ -110,12 +139,22 @@ export function createSdkXmcClient(
 
     async createItem(args) {
       const data = await gql<{
-        createItem: { item: {
+        createItem?: { item?: {
           itemId: string; path: string;
           fields: { nodes: SitecoreField[] };
-        } };
+        } } | null;
       }>(CREATE_ITEM_MUTATION, { input: args });
-      const item = data.createItem.item;
+      const item = data.createItem?.item;
+      if (!item) {
+        throw new Error(
+          `XMC createItem("${args.name}" under ` +
+          `${args.parent}): response missing ` +
+          `createItem.item. The Marketplace app may not ` +
+          `have permission to create items under this ` +
+          `parent, or the parent path / template id is ` +
+          `invalid.`
+        );
+      }
       return {
         itemId: item.itemId,
         path: item.path,
@@ -125,12 +164,19 @@ export function createSdkXmcClient(
 
     async updateItem(args) {
       const data = await gql<{
-        updateItem: { item: {
+        updateItem?: { item?: {
           itemId: string; path: string;
           fields: { nodes: SitecoreField[] };
-        } };
+        } } | null;
       }>(UPDATE_ITEM_MUTATION, { input: args });
-      const item = data.updateItem.item;
+      const item = data.updateItem?.item;
+      if (!item) {
+        throw new Error(
+          `XMC updateItem(${args.itemId}): response ` +
+          `missing updateItem.item. The Marketplace app ` +
+          `may lack write permission on this item.`
+        );
+      }
       return {
         itemId: item.itemId,
         path: item.path,
