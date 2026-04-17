@@ -150,8 +150,38 @@ function toFields(r: ReportRecord): SitecoreField[] {
     { name: REPORT_FIELD.datasourceItemId,
       value: r.datasourceId ?? "" },
     { name: REPORT_FIELD.reporter, value: reporter },
-    { name: REPORT_FIELD.createdAt, value: r.createdAt }
+    { name: REPORT_FIELD.createdAt,
+      value: toSitecoreDatetime(r.createdAt) }
   ];
+}
+
+// Sitecore's Datetime field expects ISO-8601 *basic*
+// (yyyyMMddTHHmmssZ), not extended (yyyy-MM-ddTHH:mm:ss.sssZ).
+// Passing the extended form silently stores DateTime.MinValue,
+// which surfaces as "1/1/0001 12:00 AM" in Content Editor.
+function toSitecoreDatetime(iso: string): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  // "2026-04-17T12:34:56.789Z" → "20260417T123456Z"
+  return d.toISOString()
+    .replace(/[-:]/g, "")
+    .replace(/\.\d{3}/, "");
+}
+
+function fromSitecoreDatetime(raw: string): string {
+  if (!raw) return "";
+  // Accept either basic ("20260417T123456Z") or extended
+  // ISO. Readers elsewhere in the codebase expect the
+  // extended form, so normalise on the way out.
+  const m = raw.match(
+    /^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z?$/
+  );
+  if (m) {
+    return `${m[1]}-${m[2]}-${m[3]}T` +
+      `${m[4]}:${m[5]}:${m[6]}.000Z`;
+  }
+  return raw;
 }
 
 function fromFields(
@@ -180,7 +210,9 @@ function fromFields(
         }
       : null,
     datasourceId: f[REPORT_FIELD.datasourceItemId] || null,
-    createdAt: f[REPORT_FIELD.createdAt] ?? ""
+    createdAt: fromSitecoreDatetime(
+      f[REPORT_FIELD.createdAt] ?? ""
+    )
   };
   const result = ReportRecordSchema.safeParse(candidate);
   return result.success ? result.data : null;

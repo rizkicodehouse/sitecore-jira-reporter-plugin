@@ -243,10 +243,12 @@ export function createSdkXmcClient(
           } | null> | null;
         } | null;
       }>(SEARCH_ITEMS_QUERY, {
-        rootItem: args.rootPath,
         templateId: stripBraces(args.templateId),
         pageIndex, pageSize
       });
+      // args.rootPath is accepted for API compatibility
+      // but not forwarded — see SEARCH_ITEMS_QUERY for why.
+      void args.rootPath;
       const search = data.search;
       const totalCount = search?.totalCount ?? 0;
       const results = (search?.results ?? [])

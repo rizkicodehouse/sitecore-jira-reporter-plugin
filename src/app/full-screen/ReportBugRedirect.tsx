@@ -2,7 +2,7 @@
 import { FC } from "react";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/lib/icon";
-import { mdiLadybug } from "@mdi/js";
+import { mdiBug } from "@mdi/js";
 import {
   REPORT_BUG_BUTTON_CLASS
 } from "@/features/report-bug/ReportBugButton";
@@ -17,7 +17,7 @@ export const ReportBugRedirect: FC = () => (
       rel="noopener noreferrer"
       aria-label="Open Page Builder to report a bug"
     >
-      <Icon path={mdiLadybug} aria-hidden />
+      <Icon path={mdiBug} aria-hidden />
       Report bug
     </a>
   </Button>

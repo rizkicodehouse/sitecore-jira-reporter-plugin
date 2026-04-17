@@ -10,6 +10,9 @@ import {
   TEMPLATE_ID_BUG_REPORT, REPORT_FIELD
 } from "@/services/sitecore/templates";
 import {
+  BUG_REPORT_TEMPLATE_PATH
+} from "@/services/sitecore/template-provision";
+import {
   ReportRecordSchema, type ReportRecord
 } from "@/lib/reports-store";
 import type { ReportsPage } from "./types";
@@ -18,6 +21,15 @@ export async function loadReportsFromXmc(
   client: XmcClient,
   { offset, limit }: { offset: number; limit: number }
 ): Promise<ReportsPage> {
+  // Resolve the real BugReport template id at read time —
+  // same reason as the write side: ensureFeatureTemplates
+  // assigns a fresh Guid per install, and the hardcoded
+  // constant is only a fallback when the template lookup
+  // fails.
+  const tplItem = await client.itemByPath(
+    BUG_REPORT_TEMPLATE_PATH
+  );
+  const templateId = tplItem?.itemId ?? TEMPLATE_ID_BUG_REPORT;
   const batch = Math.max(limit, 50);
   let cursor: string | undefined = undefined;
   let total = 0;
@@ -26,7 +38,7 @@ export async function loadReportsFromXmc(
   while (true) {
     const page = await client.searchItems({
       rootPath: "/sitecore/content",
-      templateId: TEMPLATE_ID_BUG_REPORT,
+      templateId,
       first: batch,
       after: cursor
     });
@@ -76,10 +88,24 @@ function fromFields(
         }
       : null,
     datasourceId: f[REPORT_FIELD.datasourceItemId] || null,
-    createdAt: f[REPORT_FIELD.createdAt] ?? ""
+    createdAt: normaliseSitecoreDatetime(
+      f[REPORT_FIELD.createdAt] ?? ""
+    )
   };
   const result = ReportRecordSchema.safeParse(candidate);
   return result.success ? result.data : null;
+}
+
+function normaliseSitecoreDatetime(raw: string): string {
+  if (!raw) return "";
+  const m = raw.match(
+    /^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z?$/
+  );
+  if (m) {
+    return `${m[1]}-${m[2]}-${m[3]}T` +
+      `${m[4]}:${m[5]}:${m[6]}.000Z`;
+  }
+  return raw;
 }
 
 function parseReporter(raw: string) {

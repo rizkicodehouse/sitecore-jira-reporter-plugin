@@ -60,7 +60,7 @@ describe("reports-sitecore-repo", () => {
         { name: "Ticket URL",
           value: "https://jira/SJP-7" },
         { name: "Created At",
-          value: "2026-04-16T12:00:00.000Z" }
+          value: "20260416T120000Z" }
       ])
     );
   });
@@ -92,7 +92,7 @@ describe("reports-sitecore-repo", () => {
           "Summary": "Broken tile",
           "Issue Type": "Bug",
           "Reporter": "R <r@x>",
-          "Created At": "2026-04-16T12:00:00.000Z",
+          "Created At": "20260416T120000Z",
           "Page Item ID": "",
           "Page Path": "",
           "Rendering Instance ID": "",

@@ -27,7 +27,6 @@ describe("xmc-mutations", () => {
 
   it("SEARCH_ITEMS_QUERY uses the Authoring search schema", () => {
     expect(SEARCH_ITEMS_QUERY).toContain("query SearchItems");
-    expect(SEARCH_ITEMS_QUERY).toContain("$rootItem: String!");
     expect(SEARCH_ITEMS_QUERY).toContain("$templateId: String!");
     expect(SEARCH_ITEMS_QUERY).toContain("$pageIndex: Int!");
     expect(SEARCH_ITEMS_QUERY).toContain("$pageSize: Int!");

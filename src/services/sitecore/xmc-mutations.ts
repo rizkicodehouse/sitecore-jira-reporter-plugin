@@ -37,16 +37,15 @@ export const UPDATE_ITEM_MUTATION = `
 
 // XMC Authoring search is offset-based (pageIndex/pageSize)
 // and filters via SearchStatementInput.criteria. Confirmed
-// against the live schema via /debug-xmc-schema. _path and
-// _templates are the conventional index fields:
-//   _path       = contains ancestor ids (use Contains or Eq)
-//   _templates  = contains inherited template ids
-//   _template   = this item's direct template id
-// We filter by `_template` because our plugin creates
-// BugReport items with an exact template id.
+// against the live schema via /debug-xmc-schema. We only
+// filter by `_template` — the plugin's BugReport template
+// id is unique across the instance, so rootItem isn't
+// needed. `_path` in the index is an ancestor-id list, not
+// a path string, so filtering it with "/sitecore/content"
+// never matched anything and returned zero results even
+// when bug-report items existed.
 export const SEARCH_ITEMS_QUERY = `
   query SearchItems(
-    $rootItem: String!,
     $templateId: String!,
     $pageIndex: Int!,
     $pageSize: Int!
@@ -54,7 +53,6 @@ export const SEARCH_ITEMS_QUERY = `
     search(query: {
       filterStatement: {
         criteria: [
-          { field: "_path", value: $rootItem }
           { field: "_template", value: $templateId }
         ]
       }
