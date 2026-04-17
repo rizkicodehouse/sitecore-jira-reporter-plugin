@@ -113,6 +113,20 @@ export function createSdkXmcClient(
     catch { return String(err); }
   }
 
+  // Internal helper so createItem can resolve the parent
+  // path → Guid without going through the public surface.
+  async function itemByPathInternal(
+    path: string, language?: string
+  ) {
+    const data = await gql<{
+      item: null | {
+        itemId: string; name?: string; path: string;
+        fields: { nodes: SitecoreField[] };
+      };
+    }>(ITEM_BY_PATH_QUERY, { path, language });
+    return data.item;
+  }
+
   return {
     async getCurrentUser() {
       const data = await gql<{
@@ -122,28 +136,47 @@ export function createSdkXmcClient(
     },
 
     async itemByPath(path, language) {
-      const data = await gql<{
-        item: null | {
-          itemId: string; name?: string; path: string;
-          fields: { nodes: SitecoreField[] };
-        };
-      }>(ITEM_BY_PATH_QUERY, { path, language });
-      if (!data.item) return null;
+      const item = await itemByPathInternal(path, language);
+      if (!item) return null;
       return {
-        itemId: data.item.itemId,
-        name: data.item.name,
-        path: data.item.path,
-        fields: fieldsToMap(data.item.fields.nodes)
+        itemId: item.itemId,
+        name: item.name,
+        path: item.path,
+        fields: fieldsToMap(item.fields.nodes)
       };
     },
 
     async createItem(args) {
+      // CreateItemInput.parent is typed as Guid in the XMC
+      // Authoring schema. Our abstraction takes a path for
+      // ergonomics, so resolve the parent's itemId here
+      // before issuing the mutation — otherwise Authoring
+      // returns "Unable to convert type from String to
+      // Guid".
+      const parentItem = await itemByPathInternal(
+        args.parent, args.language
+      );
+      if (!parentItem) {
+        throw new Error(
+          `XMC createItem: parent item not found at ` +
+          `${args.parent}. Check that the path exists in ` +
+          `the requested language (${args.language}).`
+        );
+      }
       const data = await gql<{
         createItem?: { item?: {
           itemId: string; path: string;
           fields: { nodes: SitecoreField[] };
         } } | null;
-      }>(CREATE_ITEM_MUTATION, { input: args });
+      }>(CREATE_ITEM_MUTATION, {
+        input: {
+          name: args.name,
+          parent: parentItem.itemId,
+          templateId: args.templateId,
+          language: args.language,
+          fields: args.fields
+        }
+      });
       const item = data.createItem?.item;
       if (!item) {
         throw new Error(
@@ -151,8 +184,7 @@ export function createSdkXmcClient(
           `${args.parent}): response missing ` +
           `createItem.item. The Marketplace app may not ` +
           `have permission to create items under this ` +
-          `parent, or the parent path / template id is ` +
-          `invalid.`
+          `parent, or the template id is invalid.`
         );
       }
       return {
@@ -185,49 +217,19 @@ export function createSdkXmcClient(
     },
 
     async searchItems(args) {
-      const data = await gql<{
-        search?: {
-          totalCount?: number;
-          pageInfo?: {
-            endCursor?: string | null;
-            hasNext?: boolean;
-          };
-          results?: Array<{ innerItem?: {
-            itemId: string; path: string;
-            fields: { nodes: SitecoreField[] };
-          } }>;
-        } | null;
-      }>(SEARCH_ITEMS_QUERY, {
-        rootItem: args.rootPath,
-        templates: args.templateId,
-        first: args.first,
-        after: args.after ?? null
-      });
-      // Authoring GraphQL returns `search: null` when the
-      // index has no matches (rather than an empty result
-      // envelope). Treat that as an empty page instead of
-      // letting a TypeError bubble up to the UI.
-      const search = data.search;
-      if (!search) {
-        return {
-          totalCount: 0, endCursor: null,
-          hasNext: false, items: []
-        };
-      }
-      const results = search.results ?? [];
+      // TODO: rewrite against the real XMC Authoring
+      // schema once confirmed via introspection. The
+      // `search(where, orderBy, first, after, pageInfo)`
+      // shape we had was copied from Content Delivery
+      // GraphQL and doesn't exist on the Authoring
+      // endpoint. Returning an empty page keeps the
+      // fullscreen reports UI on its "No bug reports yet"
+      // empty state while the schema is being verified.
+      void args;
+      void SEARCH_ITEMS_QUERY;
       return {
-        totalCount: search.totalCount ?? 0,
-        endCursor: search.pageInfo?.endCursor ?? null,
-        hasNext: search.pageInfo?.hasNext ?? false,
-        items: results
-          .map((r) => r.innerItem)
-          .filter((i): i is NonNullable<typeof i> =>
-            Boolean(i))
-          .map((i) => ({
-            itemId: i.itemId,
-            path: i.path,
-            fields: fieldsToMap(i.fields.nodes)
-          }))
+        totalCount: 0, endCursor: null,
+        hasNext: false, items: []
       };
     },
 

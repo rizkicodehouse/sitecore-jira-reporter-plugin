@@ -58,10 +58,21 @@ describe("createSdkXmcClient", () => {
     );
   });
 
-  it("forwards createItem input unchanged", async () => {
-    let captured: Record<string, unknown> | undefined;
-    const client = createSdkXmcClient(mutatorWith((_q, v) => {
-      captured = v;
+  it("resolves the parent path to a Guid before calling createItem", async () => {
+    const captures: Array<Record<string, unknown> | undefined> = [];
+    // createItem first runs ITEM_BY_PATH_QUERY to turn the
+    // parent path into a Guid (XMC Authoring's
+    // CreateItemInput.parent is typed as Guid). The second
+    // call is the actual mutation — that's what we assert
+    // against.
+    const client = createSdkXmcClient(mutatorWith((q, v) => {
+      captures.push(v);
+      if (q.includes("ItemByPath")) {
+        return { data: { item: {
+          itemId: "parent-guid", path: "/sitecore/x",
+          fields: { nodes: [] }
+        } } };
+      }
       return { data: { createItem: { item: {
         itemId: "new-id", path: "/a",
         fields: { nodes: [] }
@@ -72,60 +83,17 @@ describe("createSdkXmcClient", () => {
       templateId: "tpl", language: "en",
       fields: [{ name: "Title", value: "t" }]
     });
-    expect(captured).toEqual({ input: {
-      name: "Config", parent: "/sitecore/x",
+    const createCapture = captures[1];
+    expect(createCapture).toEqual({ input: {
+      name: "Config", parent: "parent-guid",
       templateId: "tpl", language: "en",
       fields: [{ name: "Title", value: "t" }]
     } });
   });
 
-  it("maps searchItems pageInfo + results", async () => {
+  it("searchItems returns an empty page (stub pending real Authoring schema)", async () => {
     const client = createSdkXmcClient(mutatorWith(() => ({
-      data: { search: {
-        totalCount: 2,
-        pageInfo: { endCursor: "c", hasNext: false },
-        results: [
-          { innerItem: {
-            itemId: "a", path: "/x/a",
-            fields: { nodes: [
-              { name: "Title", value: "A" }
-            ] }
-          } },
-          { innerItem: {
-            itemId: "b", path: "/x/b",
-            fields: { nodes: [] }
-          } }
-        ]
-      } }
-    })));
-    const page = await client.searchItems({
-      rootPath: "/x", templateId: "tpl", first: 10
-    });
-    expect(page.totalCount).toBe(2);
-    expect(page.hasNext).toBe(false);
-    expect(page.endCursor).toBe("c");
-    expect(page.items).toHaveLength(2);
-    expect(page.items[0]?.fields).toEqual({ Title: "A" });
-  });
-
-  it("treats null search response as an empty page", async () => {
-    const client = createSdkXmcClient(mutatorWith(() => ({
-      data: { search: null }
-    })));
-    const page = await client.searchItems({
-      rootPath: "/x", templateId: "tpl", first: 10
-    });
-    expect(page.totalCount).toBe(0);
-    expect(page.hasNext).toBe(false);
-    expect(page.endCursor).toBeNull();
-    expect(page.items).toEqual([]);
-  });
-
-  it("tolerates a search response missing pageInfo", async () => {
-    const client = createSdkXmcClient(mutatorWith(() => ({
-      data: { search: {
-        totalCount: 0, results: []
-      } }
+      data: {}
     })));
     const page = await client.searchItems({
       rootPath: "/x", templateId: "tpl", first: 10
