@@ -1,7 +1,9 @@
 import type { PluginError } from "@/lib/jira-errors";
 import type { NormalizedField }
   from "@/lib/jira-create-meta";
-import { buildAuthHeaders } from "@/lib/api-headers";
+import {
+  buildAuthHeaders, JIRA_CREDS_HEADER
+} from "@/lib/api-headers";
 import type { XmcClient } from "@/services/sitecore/xmc";
 import type { SiteScope } from "@/services/sitecore/site-scope";
 import {
@@ -27,8 +29,6 @@ export type JiraSettingsForIssue = {
   defaultLabels: string[];
   defaultBoardId: number | null;
 };
-
-const JIRA_CREDS_HEADER = "x-jira-creds";
 
 function encodeCreds(
   creds: JiraCredsForRequest | null | undefined

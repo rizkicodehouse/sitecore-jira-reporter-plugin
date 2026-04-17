@@ -48,3 +48,18 @@ export const DEFAULT_SETTINGS: StoredSettings = {
   jiraApiTokenEnc: null,
   adminEmails: []
 };
+
+export function toPublicSettings(
+  s: StoredSettings
+): PublicSettings {
+  return {
+    projectKey: s.projectKey,
+    defaultIssueType: s.defaultIssueType,
+    defaultLabels: s.defaultLabels,
+    defaultBoardId: s.defaultBoardId ?? null,
+    jiraBaseUrl: s.jiraBaseUrl,
+    jiraServiceEmail: s.jiraServiceEmail,
+    hasJiraApiToken: Boolean(s.jiraApiTokenEnc),
+    adminEmails: s.adminEmails
+  };
+}

@@ -16,9 +16,16 @@ export type SettingsSitecoreRepo = {
   exists: (
     tenant: string, site: string
   ) => Promise<boolean>;
+  // Returns DEFAULT_SETTINGS when the Config item is
+  // missing. Use readOrNull when callers need to
+  // distinguish "not provisioned" from "provisioned
+  // with defaults" in a single round-trip.
   read: (
     tenant: string, site: string
   ) => Promise<StoredSettings>;
+  readOrNull: (
+    tenant: string, site: string
+  ) => Promise<StoredSettings | null>;
   write: (
     tenant: string, site: string, value: StoredSettings
   ) => Promise<void>;
@@ -51,6 +58,13 @@ export function createSettingsSitecoreRepo(
       const path = settingsConfigPath(tenant, site);
       const item = await client.itemByPath(path, lang);
       if (!item) return DEFAULT_SETTINGS;
+      return fromFields(item.fields);
+    },
+
+    async readOrNull(tenant, site) {
+      const path = settingsConfigPath(tenant, site);
+      const item = await client.itemByPath(path, lang);
+      if (!item) return null;
       return fromFields(item.fields);
     },
 

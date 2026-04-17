@@ -37,21 +37,22 @@ export function createReportsSitecoreRepo(
 ): ReportsSitecoreRepo {
   const lang = opts.language ?? "en";
   const { client } = opts;
+  // Cache the per-tenant template GUID for the lifetime of
+  // the repo — it never changes once ensureFeatureTemplates
+  // has run, so one itemByPath per repo is enough.
+  let cachedTemplateId: string | null = null;
 
   return {
     async append(tenant, site, record) {
       const parsed = ReportRecordSchema.parse(record);
-      // The template that ensureFeatureTemplates creates
-      // has a fresh GUID per tenant — not the hardcoded
-      // placeholder in TEMPLATE_ID_BUG_REPORT. Resolve the
-      // real id by path at write time so createItem
-      // references a template that actually exists in this
-      // Sitecore instance.
-      const tplItem = await client.itemByPath(
-        BUG_REPORT_TEMPLATE_PATH, lang
-      );
-      const templateId = tplItem?.itemId
-        ?? TEMPLATE_ID_BUG_REPORT;
+      if (!cachedTemplateId) {
+        const tplItem = await client.itemByPath(
+          BUG_REPORT_TEMPLATE_PATH, lang
+        );
+        cachedTemplateId = tplItem?.itemId
+          ?? TEMPLATE_ID_BUG_REPORT;
+      }
+      const templateId = cachedTemplateId;
       try {
         await client.createItem({
           name: parsed.jiraKey,

@@ -1,3 +1,8 @@
+// Header used by the browser to forward its loaded Jira
+// settings alongside every Jira API request, so the server
+// routes can call Atlassian without reading Sitecore itself.
+export const JIRA_CREDS_HEADER = "x-jira-creds";
+
 export type ClientIdentity = {
   tenantId?: string;
   userEmail?: string;

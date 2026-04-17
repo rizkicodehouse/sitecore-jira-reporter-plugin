@@ -125,6 +125,7 @@ describe("SettingsStore — sitecore driver", () => {
     const repo = {
       exists: vi.fn(async () => true),
       read: vi.fn(async () => DEFAULT_SETTINGS),
+      readOrNull: vi.fn(async () => DEFAULT_SETTINGS),
       write: vi.fn()
     };
     const store = new SettingsStore({
@@ -144,6 +145,7 @@ describe("SettingsStore — sitecore driver", () => {
     const repo = {
       exists: vi.fn(async () => true),
       read: vi.fn(async () => DEFAULT_SETTINGS),
+      readOrNull: vi.fn(async () => DEFAULT_SETTINGS),
       write: vi.fn()
     };
     const store = new SettingsStore({

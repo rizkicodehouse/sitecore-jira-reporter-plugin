@@ -15,7 +15,7 @@ import {
 // instantly findable in Content Editor.
 const ICON_FIELD = { name: "__Icon", value: PLUGIN_BUG_ICON };
 
-export type ProvisionArgs = {
+type ProvisionArgs = {
   client: XmcClient;
   tenant: string;
   site: string;
@@ -28,7 +28,7 @@ export type ProvisionArgs = {
   ensureTemplates?: boolean;
 };
 
-export type ProvisionResult = {
+type ProvisionResult = {
   settingsTemplateId: string;
   bugReportTemplateId: string;
 };
@@ -65,8 +65,25 @@ export async function provisionPluginSite(
   // vanilla Sitecore site may not — the plugin creates them
   // so no manual authoring is required before install.
   const settingsRoot = `${siteRoot}/Settings`;
-  const settingsRootItem =
-    await client.itemByPath(settingsRoot, language);
+  const dataRoot = `${siteRoot}/Data`;
+  const folderPath = settingsFolderPath(tenant, site);
+  const configPath = settingsConfigPath(tenant, site);
+  const reportsPath = bugReportsRootPath(tenant, site);
+
+  const [
+    settingsRootItem,
+    dataRootItem,
+    existingFolder,
+    existingConfig,
+    existingReports
+  ] = await Promise.all([
+    client.itemByPath(settingsRoot, language),
+    client.itemByPath(dataRoot, language),
+    client.itemByPath(folderPath, language),
+    client.itemByPath(configPath, language),
+    client.itemByPath(reportsPath, language)
+  ]);
+
   if (!settingsRootItem) {
     await client.createItem({
       name: "Settings",
@@ -76,9 +93,6 @@ export async function provisionPluginSite(
       fields: []
     });
   }
-  const dataRoot = `${siteRoot}/Data`;
-  const dataRootItem =
-    await client.itemByPath(dataRoot, language);
   if (!dataRootItem) {
     await client.createItem({
       name: "Data",
@@ -90,9 +104,6 @@ export async function provisionPluginSite(
   }
 
   // 1. Ensure the "Bug Reporter for Jira" folder.
-  const folderPath = settingsFolderPath(tenant, site);
-  const existingFolder =
-    await client.itemByPath(folderPath, language);
   if (!existingFolder) {
     await client.createItem({
       name: "Bug Reporter for Jira",
@@ -104,9 +115,6 @@ export async function provisionPluginSite(
   }
 
   // 2. Ensure the Config item using the resolved template id.
-  const configPath = settingsConfigPath(tenant, site);
-  const existingConfig =
-    await client.itemByPath(configPath, language);
   if (!existingConfig) {
     await client.createItem({
       name: "Config",
@@ -122,9 +130,6 @@ export async function provisionPluginSite(
   // existing folders (from earlier installs that didn't
   // flag them as buckets) get upgraded without requiring
   // a teardown.
-  const reportsPath = bugReportsRootPath(tenant, site);
-  const existingReports =
-    await client.itemByPath(reportsPath, language);
   const reportsItem = existingReports
     ? existingReports
     : await client.createItem({

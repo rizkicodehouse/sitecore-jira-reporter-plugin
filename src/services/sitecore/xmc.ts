@@ -4,6 +4,7 @@ import {
   UPDATE_ITEM_MUTATION,
   SEARCH_ITEMS_QUERY
 } from "./xmc-mutations";
+import { fieldsToMap } from "./utils";
 
 export const GET_ME_QUERY = `query Me {
   me { name email }
@@ -77,14 +78,6 @@ export type XmcClient = {
     variables?: Record<string, unknown>
   ) => Promise<T>;
 };
-
-function fieldsToMap(
-  nodes: Array<{ name: string; value: string }> | undefined
-): Record<string, string> {
-  const out: Record<string, string> = {};
-  for (const n of nodes ?? []) out[n.name] = n.value;
-  return out;
-}
 
 export function createXmcClient(
   opts: XmcClientOptions

@@ -20,6 +20,8 @@ type Identity = {
   userName: string;
 };
 
+const AUTH_POLL_INTERVAL_MS = 2000;
+
 type SessionState = "unknown" | "authenticated" | "needs-login";
 
 export const ReportsView: FC = () => {
@@ -77,7 +79,7 @@ export const ReportsView: FC = () => {
         }
       } catch { /* keep polling */ }
     };
-    const id = setInterval(tick, 2000);
+    const id = setInterval(tick, AUTH_POLL_INTERVAL_MS);
     return () => {
       cancelled = true;
       clearInterval(id);

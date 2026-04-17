@@ -237,14 +237,13 @@ export async function POST(req: Request) {
         }
       }
     }
-    const boardId = defaultBoardId;
-    if (boardId) {
+    if (defaultBoardId) {
       try {
         const info = await getBoardSprintInfo(
           creds.baseUrl,
           creds.serviceEmail,
           creds.apiToken,
-          boardId
+          defaultBoardId
         );
         if (info.activeSprintId) {
           await addIssueToSprint(
@@ -265,11 +264,6 @@ export async function POST(req: Request) {
       }
     }
     const jiraUrl = `${creds.baseUrl}/browse/${created.key}`;
-    // Historic path wrote the BugReport Sitecore item here
-    // via resolveReportsStore. XMC Authoring isn't reachable
-    // from the server anymore (no bearer token from the
-    // iframe SDK), so the browser now writes the item itself
-    // after this response — see features/report-bug code.
     return NextResponse.json({
       key: created.key,
       url: jiraUrl,

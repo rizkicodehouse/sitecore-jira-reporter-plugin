@@ -14,10 +14,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@atlaskit/adf-utils": "^19.0.0",
     "@auth0/nextjs-auth0": "^4.17.0",
     "@mdi/js": "^7.4.47",
-    "@mdi/react": "^1.6.1",
     "@sitecore-marketplace-sdk/client": "0.3.1",
     "@sitecore-marketplace-sdk/xmc": "0.3.2",
     "class-variance-authority": "^0.7.1",

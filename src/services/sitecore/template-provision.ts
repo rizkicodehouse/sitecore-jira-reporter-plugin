@@ -8,6 +8,7 @@
 // reused without modification.
 
 import type { XmcClient } from "./xmc";
+import { stripBraces } from "./utils";
 
 export const FEATURE_TEMPLATES_ROOT =
   "/sitecore/templates/Feature";
@@ -115,10 +116,6 @@ export type TemplateProvisionArgs = {
   client: XmcClient;
 };
 
-function stripBraces(id: string): string {
-  return id.replace(/[{}]/g, "");
-}
-
 export async function ensureFeatureTemplates(
   args: TemplateProvisionArgs
 ): Promise<ResolvedTemplateIds> {
@@ -126,10 +123,11 @@ export async function ensureFeatureTemplates(
 
   // 1. Short-circuit: if both templates already exist, read
   // their ids out of itemByPath and return without mutating.
-  const existingSettings =
-    await client.itemByPath(SETTINGS_TEMPLATE_PATH);
-  const existingBugReport =
-    await client.itemByPath(BUG_REPORT_TEMPLATE_PATH);
+  const [existingSettings, existingBugReport] =
+    await Promise.all([
+      client.itemByPath(SETTINGS_TEMPLATE_PATH),
+      client.itemByPath(BUG_REPORT_TEMPLATE_PATH)
+    ]);
   if (existingSettings && existingBugReport) {
     return {
       settingsTemplateId: `{${stripBraces(existingSettings.itemId)}}`,

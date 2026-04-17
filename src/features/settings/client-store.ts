@@ -11,6 +11,7 @@ import {
 } from "@/lib/settings-sitecore-repo";
 import {
   DEFAULT_SETTINGS,
+  toPublicSettings,
   type PublicSettings,
   type SettingsUpdate,
   type StoredSettings
@@ -24,31 +25,11 @@ export type ClientSettingsContext = {
   authHeaders: HeadersInit;
 };
 
-function toPublic(s: StoredSettings): PublicSettings {
-  return {
-    projectKey: s.projectKey,
-    defaultIssueType: s.defaultIssueType,
-    defaultLabels: s.defaultLabels,
-    defaultBoardId: s.defaultBoardId ?? null,
-    jiraBaseUrl: s.jiraBaseUrl,
-    jiraServiceEmail: s.jiraServiceEmail,
-    hasJiraApiToken: Boolean(s.jiraApiTokenEnc),
-    adminEmails: s.adminEmails
-  };
-}
-
 export async function loadClientSettings(
   ctx: ClientSettingsContext
 ): Promise<PublicSettings> {
-  const repo = createSettingsSitecoreRepo({
-    client: ctx.xmcClient
-  });
-  const provisioned = await repo.exists(ctx.tenant, ctx.site);
-  if (!provisioned) {
-    throw { category: "not-provisioned" };
-  }
-  const stored = await repo.read(ctx.tenant, ctx.site);
-  return toPublic(stored);
+  const stored = await loadClientStoredSettings(ctx);
+  return toPublicSettings(stored);
 }
 
 // Variant that also returns the ciphertext, for callers
@@ -61,11 +42,9 @@ export async function loadClientStoredSettings(
   const repo = createSettingsSitecoreRepo({
     client: ctx.xmcClient
   });
-  const provisioned = await repo.exists(ctx.tenant, ctx.site);
-  if (!provisioned) {
-    throw { category: "not-provisioned" };
-  }
-  return repo.read(ctx.tenant, ctx.site);
+  const stored = await repo.readOrNull(ctx.tenant, ctx.site);
+  if (!stored) throw { category: "not-provisioned" };
+  return stored;
 }
 
 export async function saveClientSettings(
@@ -100,7 +79,7 @@ export async function saveClientSettings(
     }
     throw e;
   }
-  return toPublic(stored);
+  return toPublicSettings(stored);
 }
 
 async function encryptViaServer(

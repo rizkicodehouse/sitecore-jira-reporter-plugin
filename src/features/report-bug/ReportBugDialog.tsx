@@ -45,6 +45,10 @@ type Attachment = {
   blob: Blob; name: string;
 };
 
+// Sentinel value for the rendering picker meaning
+// "report against the whole page, not a specific rendering".
+const PAGE_LEVEL = "__page_level__";
+
 export type ReportBugDialogProps = {
   context: ReportContext;
   submit: SubmitFn;
@@ -61,7 +65,6 @@ export const ReportBugDialog: FC<ReportBugDialogProps> = (
     onClose, captureScreen, loadCreateMeta, searchUsers,
     loadPriorities }
 ) => {
-  const PAGE_LEVEL = "__page_level__";
   const [summary, setSummary] = useState("");
   const [desc, setDesc] = useState("");
   const [attach, setAttach] = useState<Attachment[]>([]);

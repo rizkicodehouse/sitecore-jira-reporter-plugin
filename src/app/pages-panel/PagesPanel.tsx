@@ -1,6 +1,6 @@
 "use client";
 import {
-  FC, ReactNode, useCallback, useEffect, useState
+  FC, ReactNode, useCallback, useEffect, useMemo, useState
 } from "react";
 import {
   initSitecoreContext, getPagesContext,
@@ -52,6 +52,9 @@ import type {
 export type PagesPanelProps = {
   skipAuthForTests?: boolean;
 };
+
+const AUTH_POLL_INTERVAL_MS = 2000;
+const SELECTION_POLL_INTERVAL_MS = 1500;
 
 type SessionState = "unknown" | "authenticated" | "needs-login";
 
@@ -145,7 +148,7 @@ export const PagesPanel: FC<PagesPanelProps> = (
         }
       } catch { /* keep polling */ }
     };
-    const id = setInterval(tick, 2000);
+    const id = setInterval(tick, AUTH_POLL_INTERVAL_MS);
     return () => {
       cancelled = true;
       clearInterval(id);
@@ -312,7 +315,10 @@ export const PagesPanel: FC<PagesPanelProps> = (
     } catch {
       /* subscription unsupported — poll instead */
     }
-    const poll = setInterval(() => refreshSelection(), 1500);
+    const poll = setInterval(
+      () => refreshSelection(),
+      SELECTION_POLL_INTERVAL_MS
+    );
     return () => {
       clearInterval(poll);
       if (off) off();
@@ -348,27 +354,39 @@ export const PagesPanel: FC<PagesPanelProps> = (
     userName,
     activeRenderingInstanceId: activeInstanceId
   });
-  const jira = new JiraClient({
-    tenantId, userEmail, userName,
-    xmcClient, siteScope,
-    creds: jiraCreds,
-    settings: jiraSettings
-  });
+  const jira = useMemo(
+    () => new JiraClient({
+      tenantId, userEmail, userName,
+      xmcClient, siteScope,
+      creds: jiraCreds,
+      settings: jiraSettings
+    }),
+    [
+      tenantId, userEmail, userName,
+      xmcClient, siteScope, jiraCreds, jiraSettings
+    ]
+  );
 
-  const identity = { tenantId, userEmail, userName };
+  const identity = useMemo(
+    () => ({ tenantId, userEmail, userName }),
+    [tenantId, userEmail, userName]
+  );
 
-  function resolveSettingsCtx(): ClientSettingsContext {
-    if (!xmcClient || !siteScope) {
-      throw { category: "sdk-not-ready" };
-    }
-    return {
-      xmcClient,
-      tenant: siteScope.tenant,
-      site: siteScope.site,
-      tenantId,
-      authHeaders: buildAuthHeaders(identity)
-    };
-  }
+  const resolveSettingsCtx = useCallback(
+    (): ClientSettingsContext => {
+      if (!xmcClient || !siteScope) {
+        throw { category: "sdk-not-ready" };
+      }
+      return {
+        xmcClient,
+        tenant: siteScope.tenant,
+        site: siteScope.site,
+        tenantId,
+        authHeaders: buildAuthHeaders(identity)
+      };
+    },
+    [xmcClient, siteScope, tenantId, identity]
+  );
 
   // useCallback-stable so SettingsView's load effect only
   // fires once per dep change (xmcClient/siteScope/tenantId)

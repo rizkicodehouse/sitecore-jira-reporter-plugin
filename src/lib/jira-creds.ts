@@ -1,5 +1,6 @@
 import { getSettingsStore } from "./settings-store";
 import { decryptSecret } from "./crypto";
+import { JIRA_CREDS_HEADER } from "./api-headers";
 
 export type JiraCreds = {
   baseUrl: string;
@@ -7,14 +8,6 @@ export type JiraCreds = {
   apiToken: string;
   source: "tenant" | "env" | "request" | "none";
 };
-
-// The client forwards its loaded settings alongside every
-// Jira request via a base64-encoded JSON header so the
-// server-side Jira routes can make authenticated calls to
-// Atlassian without needing to read settings from Sitecore
-// itself. Ciphertext is decrypted in-process using the
-// plugin's KEK; plaintext never leaves the server process.
-export const JIRA_CREDS_HEADER = "x-jira-creds";
 
 type JiraCredsHeaderPayload = {
   baseUrl: string;

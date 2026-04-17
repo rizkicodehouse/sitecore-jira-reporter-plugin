@@ -6,6 +6,7 @@ import {
   PublicSettingsSchema,
   SettingsUpdateSchema,
   DEFAULT_SETTINGS,
+  toPublicSettings,
   type PublicSettings,
   type SettingsUpdate,
   type StoredSettings
@@ -84,7 +85,7 @@ export class SettingsStore {
 
   async getPublic(tenantId: string): Promise<PublicSettings> {
     const s = await this.get(tenantId);
-    return toPublic(s);
+    return toPublicSettings(s);
   }
 
   async getDecryptedApiToken(
@@ -115,7 +116,7 @@ export class SettingsStore {
     this.cache.set(tenantId, {
       value: stored, at: Date.now()
     });
-    return toPublic(stored);
+    return toPublicSettings(stored);
   }
 
   private async writeByDriver(
@@ -135,19 +136,6 @@ export class SettingsStore {
     const repo = await cfg.getRepo();
     await repo.write(cfg.tenant, cfg.site, value);
   }
-}
-
-function toPublic(s: StoredSettings): PublicSettings {
-  return {
-    projectKey: s.projectKey,
-    defaultIssueType: s.defaultIssueType,
-    defaultLabels: s.defaultLabels,
-    defaultBoardId: s.defaultBoardId ?? null,
-    jiraBaseUrl: s.jiraBaseUrl,
-    jiraServiceEmail: s.jiraServiceEmail,
-    hasJiraApiToken: Boolean(s.jiraApiTokenEnc),
-    adminEmails: s.adminEmails
-  };
 }
 
 function assertTenantId(tenantId: string) {

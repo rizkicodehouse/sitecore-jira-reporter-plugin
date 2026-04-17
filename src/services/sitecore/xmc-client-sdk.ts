@@ -20,6 +20,7 @@ import {
   type XmcClient,
   type SitecoreField
 } from "./xmc";
+import { stripBraces, fieldsToMap } from "./utils";
 
 // The XMC module's mutation payload. Keep this local to
 // avoid a type import from the SDK — the generated type is
@@ -56,23 +57,6 @@ export type MarketplaceMutator = {
     options: { params: XmcGraphqlParams }
   ) => Promise<HeyApiResult<XmcGraphqlEnvelope>>;
 };
-
-function fieldsToMap(
-  nodes: Array<{ name: string; value: string }> | undefined
-): Record<string, string> {
-  const out: Record<string, string> = {};
-  for (const n of nodes ?? []) out[n.name] = n.value;
-  return out;
-}
-
-// XMC Authoring's ID scalar parses as a GUID and rejects
-// Sitecore's braced form (e.g., "{A87A00B1-...}") with
-// "Unable to convert type from String to Guid". Our
-// template constants include braces because the REST/SIF
-// conventions keep them; strip before every mutation.
-function stripBraces(id: string): string {
-  return id.replace(/^\{|\}$/g, "");
-}
 
 export function createSdkXmcClient(
   client: MarketplaceMutator,

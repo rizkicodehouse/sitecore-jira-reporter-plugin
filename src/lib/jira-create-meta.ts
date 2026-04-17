@@ -1,6 +1,6 @@
 import { basicAuthHeader } from "./jira-creds";
 
-export type NormalizedFieldType =
+type NormalizedFieldType =
   | "string"
   | "paragraph"
   | "number"
