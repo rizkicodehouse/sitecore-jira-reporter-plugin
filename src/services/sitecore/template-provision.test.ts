@@ -123,10 +123,17 @@ describe("ensureFeatureTemplates", () => {
     );
   });
 
-  it("throws when /sitecore/templates/Feature is missing", async () => {
-    const client = makeClient({ itemsByPath: {} });
+  it("surfaces a clearer error when createItem reports a missing parent", async () => {
+    const createItem = vi.fn(async () => {
+      throw new Error("Parent item does not exist");
+    });
+    const client = makeClient({
+      itemsByPath: {}, createItem
+    });
     await expect(
       ensureFeatureTemplates({ client })
-    ).rejects.toThrow(/Feature.*not found/);
+    ).rejects.toThrow(
+      /Could not create .*BugReporterJira.*Verify/i
+    );
   });
 });

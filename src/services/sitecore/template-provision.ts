@@ -131,26 +131,37 @@ export async function ensureFeatureTemplates(
   }
 
   // 2. Ensure the /Feature/BugReporterJira folder exists.
+  // We don't preflight the /sitecore/templates/Feature
+  // parent — the Authoring API's `item(where: { path })`
+  // query can return null for template-folder items that
+  // lack language versions, producing false negatives on
+  // stock Sitecore paths. If the parent is genuinely
+  // missing, `createItem` returns a clear GraphQL error
+  // that propagates through the UI.
   const folder =
     await client.itemByPath(PLUGIN_TEMPLATES_FOLDER);
   if (!folder) {
-    const featureRoot =
-      await client.itemByPath(FEATURE_TEMPLATES_ROOT);
-    if (!featureRoot) {
-      throw new Error(
-        `${FEATURE_TEMPLATES_ROOT} not found — your XMC ` +
-        `instance is missing the standard Feature ` +
-        `template folder. Create it before running ` +
-        `template provisioning.`
-      );
+    try {
+      await client.createItem({
+        name: "BugReporterJira",
+        parent: FEATURE_TEMPLATES_ROOT,
+        templateId: TEMPLATE_FOLDER_TEMPLATE_ID,
+        language: "en",
+        fields: []
+      });
+    } catch (e) {
+      const msg = (e as Error)?.message ?? "";
+      if (/not.*found|does not exist|invalid parent/i
+            .test(msg)) {
+        throw new Error(
+          `Could not create ${PLUGIN_TEMPLATES_FOLDER}. ` +
+          `Verify ${FEATURE_TEMPLATES_ROOT} exists and ` +
+          `the plugin's Marketplace app has permission ` +
+          `to create template items. Upstream: ${msg}`
+        );
+      }
+      throw e;
     }
-    await client.createItem({
-      name: "BugReporterJira",
-      parent: FEATURE_TEMPLATES_ROOT,
-      templateId: TEMPLATE_FOLDER_TEMPLATE_ID,
-      language: "en",
-      fields: []
-    });
   }
 
   // 3. Create either template if missing via the public
