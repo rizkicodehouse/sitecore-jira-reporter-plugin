@@ -268,10 +268,25 @@ export const PagesPanel: FC<PagesPanelProps> = (
       try {
         const ctx = await getPagesContext();
         setHasSelection(Boolean(ctx?.pageInfo));
-        const scope = parseSiteScopeFromPath(
+        const next = parseSiteScopeFromPath(
           ctx?.pageInfo?.path
         );
-        setSiteScope(scope);
+        // Only fire setState when the *content* actually
+        // changed. parseSiteScopeFromPath returns a fresh
+        // object each poll tick; without this guard the
+        // reference churn invalidates downstream useMemos
+        // (xmcClient) and useCallbacks (loadSettings), which
+        // re-triggers SettingsView's load effect on every
+        // 1.5s poll and wipes in-flight form edits.
+        setSiteScope((prev) => {
+          if (prev === next) return prev;
+          if (prev && next &&
+              prev.tenant === next.tenant &&
+              prev.site === next.site) {
+            return prev;
+          }
+          return next;
+        });
       } catch {
         setHasSelection(false);
       }
