@@ -17,13 +17,17 @@ Authoring GraphQL API.
 - `SETTINGS_ENCRYPTION_KEY` is set in Vercel (32 base64-encoded
   bytes). Without it, every cold start derives a fresh KEK and
   existing ciphertext becomes unreadable.
-- `SITECORE_AUTHORING_BASE_URL` points at the target XMC
-  environment's Authoring endpoint.
 - Pages Panel and Fullscreen iframes are loading the plugin
-  inside Sitecore — the Marketplace SDK's `application.context`
-  query must return a `tenantId`, `resourceAccess[0].context.preview`,
-  and an `accessToken`. Verify with the browser dev tools before
-  flipping the flag.
+  inside Sitecore. The Marketplace SDK's `application.context`
+  query must resolve — verify in devtools by calling
+  `window.__scPluginDebug`.
+- **No `SITECORE_AUTHORING_BASE_URL` needed.** As of the XMC
+  client-side migration (2026-04-17), all XMC Authoring calls
+  go through the Marketplace SDK's `xmc.authoring.graphql`
+  mutation from the browser — the server no longer talks to
+  Sitecore Authoring directly. The env var used to configure
+  the server-side client and is now dead; remove it from
+  Vercel if still set.
 
 No Sitecore-side authoring is required. The plugin creates its
 own Feature templates (`BugReporterJiraSettings`, `BugReport`)
