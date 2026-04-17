@@ -1,15 +1,15 @@
 "use client";
 import { FC, useCallback, useEffect, useMemo, useState } from "react";
 import { ReportsTable } from "./ReportsTable";
-import type { LoadReports, ReportsPage } from "./types";
-import { buildAuthHeaders } from "@/lib/api-headers";
+import type { LoadReports } from "./types";
 import {
   initSitecoreContext, getHostUser
 } from "@/services/sitecore/context";
-import {
-  readSdkContext, type SdkContext
-} from "@/services/sitecore/sdk-context";
-import { useScopedFetch } from "@/hooks/useScopedFetch";
+import { useXmcClient } from "@/hooks/useXmcClient";
+import type {
+  MarketplaceMutator
+} from "@/services/sitecore/xmc-client-sdk";
+import { loadReportsFromXmc } from "./client-loader";
 
 type Identity = {
   tenantId: string;
@@ -19,32 +19,6 @@ type Identity = {
 
 type SessionState = "unknown" | "authenticated" | "needs-login";
 
-async function fetchReports(
-  identity: Identity,
-  { offset, limit }: { offset: number; limit: number },
-  scopedFetch: typeof fetch
-): Promise<ReportsPage> {
-  const qs = new URLSearchParams({
-    offset: String(offset),
-    limit: String(limit)
-  });
-  const res = await scopedFetch(`/api/reports?${qs}`, {
-    credentials: "include",
-    headers: buildAuthHeaders(identity)
-  });
-  if (!res.ok) {
-    let userMessage = `Request failed (${res.status})`;
-    try {
-      const body = await res.json();
-      if (body?.error?.userMessage) {
-        userMessage = body.error.userMessage;
-      }
-    } catch { /* ignore */ }
-    throw { userMessage };
-  }
-  return (await res.json()) as ReportsPage;
-}
-
 export const ReportsView: FC = () => {
   const [identity, setIdentity] = useState<Identity | null>(
     null
@@ -52,17 +26,14 @@ export const ReportsView: FC = () => {
   const [sessionState, setSessionState] =
     useState<SessionState>("unknown");
   const [authPolling, setAuthPolling] = useState(false);
-  const [sdkContext, setSdkContext] =
-    useState<SdkContext | null>(null);
-  const scopedFetch = useScopedFetch(sdkContext);
+  const [marketplaceClient, setMarketplaceClient] =
+    useState<MarketplaceMutator | null>(null);
+  const xmcClient = useXmcClient(marketplaceClient);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
     const isEmbedded = window.parent !== window;
     if (!isEmbedded) {
-      // Standalone runs through ReportsTable's inline
-      // error alert on 401 — iframe cookie rules don't
-      // apply, so skip the pre-check entirely.
       setSessionState("authenticated");
       return;
     }
@@ -118,7 +89,6 @@ export const ReportsView: FC = () => {
 
     const isEmbedded = window.parent !== window;
     if (!isEmbedded) {
-      // Dev / standalone: no Sitecore host to query.
       setIdentity({
         tenantId,
         userEmail: "",
@@ -130,11 +100,13 @@ export const ReportsView: FC = () => {
     let cancelled = false;
     (async () => {
       try {
-        const mod = await import(
-          "@sitecore-marketplace-sdk/client"
-        );
-        const real = await mod.ClientSDK.init({
+        const [clientMod, xmcMod] = await Promise.all([
+          import("@sitecore-marketplace-sdk/client"),
+          import("@sitecore-marketplace-sdk/xmc")
+        ]);
+        const real = await clientMod.ClientSDK.init({
           target: window.parent,
+          modules: [xmcMod.XMC],
           ...(process.env
             .NEXT_PUBLIC_SITECORE_HOST_ORIGIN
             ? {
@@ -154,20 +126,11 @@ export const ReportsView: FC = () => {
           subscribe: () => () => {}
         };
         initSitecoreContext(adapter);
-        // Grab the Sitecore SDK context so /api/reports
-        // requests forward the editor's session.
-        try {
-          const pc = await adapter.query("pages.context");
-          const siteName =
-            (pc.data as { siteInfo?: { name?: string } })
-              ?.siteInfo?.name ?? "";
-          if (siteName) {
-            const resolved = await readSdkContext(
-              adapter, siteName
-            );
-            if (!cancelled) setSdkContext(resolved);
-          }
-        } catch { /* non-fatal */ }
+        if (!cancelled) {
+          setMarketplaceClient(
+            real as unknown as MarketplaceMutator
+          );
+        }
         const user = await getHostUser();
         if (cancelled) return;
         setIdentity({
@@ -195,9 +158,23 @@ export const ReportsView: FC = () => {
           userMessage: "Not ready"
         });
       }
-      return fetchReports(identity, args, scopedFetch);
+      if (!xmcClient) {
+        return Promise.reject({
+          userMessage:
+            "Sitecore session isn't ready yet. " +
+            "Open this from XMC Pages."
+        });
+      }
+      return loadReportsFromXmc(xmcClient, args)
+        .catch((e: unknown) => {
+          throw {
+            userMessage:
+              (e as Error)?.message ??
+              "Failed to load reports"
+          };
+        });
     },
-    [identity, scopedFetch]
+    [identity, xmcClient]
   );
 
   const key = useMemo(

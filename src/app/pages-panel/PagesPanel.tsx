@@ -310,7 +310,8 @@ export const PagesPanel: FC<PagesPanelProps> = (
     activeRenderingInstanceId: activeInstanceId
   });
   const jira = new JiraClient({
-    tenantId, userEmail, userName
+    tenantId, userEmail, userName,
+    xmcClient, siteScope
   });
 
   const identity = { tenantId, userEmail, userName };

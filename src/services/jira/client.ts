@@ -2,6 +2,11 @@ import type { PluginError } from "@/lib/jira-errors";
 import type { NormalizedField }
   from "@/lib/jira-create-meta";
 import { buildAuthHeaders } from "@/lib/api-headers";
+import type { XmcClient } from "@/services/sitecore/xmc";
+import type { SiteScope } from "@/services/sitecore/site-scope";
+import {
+  createReportsSitecoreRepo
+} from "@/lib/reports-sitecore-repo";
 
 export type CreateIssuePayload = {
   summary: string;
@@ -41,6 +46,8 @@ export class JiraClient {
       tenantId?: string;
       userEmail?: string;
       userName?: string;
+      xmcClient?: XmcClient | null;
+      siteScope?: SiteScope | null;
     } = {}
   ) {}
 
@@ -74,7 +81,66 @@ export class JiraClient {
       body: JSON.stringify(body)
     });
     if (!res.ok) throw await this.asError(res);
-    return (await res.json()) as CreateIssueResult;
+    const created = (await res.json()) as CreateIssueResult
+      & { issueType?: string };
+    // Persist the Sitecore `BugReport` item from the
+    // browser. The server used to do this when it had direct
+    // XMC access, but the iframe SDK is now the only
+    // authenticated Sitecore surface. Best-effort: Jira
+    // issue is already real, so we don't fail the UI if the
+    // mirror write fails.
+    await this.writeReportItem(payload, created)
+      .catch(() => { /* swallow — Jira creation succeeded */ });
+    return { key: created.key, url: created.url };
+  }
+
+  private async writeReportItem(
+    payload: CreateIssuePayload,
+    created: CreateIssueResult & { issueType?: string }
+  ): Promise<void> {
+    const client = this.opts.xmcClient ?? null;
+    const scope = this.opts.siteScope ?? null;
+    if (!client || !scope) return;
+    const ctx = payload.context as {
+      page?: {
+        title?: string; url?: string;
+        language?: string; site?: string;
+      } | null;
+      rendering?: {
+        instanceId: string;
+        renderingId?: string; name?: string;
+        templateName?: string; placeholderKey?: string;
+        dataSource?: string;
+      } | null;
+      reporter?: { name: string; email: string } | null;
+    };
+    const repo = createReportsSitecoreRepo({ client });
+    await repo.append(scope.tenant, scope.site, {
+      jiraKey: created.key,
+      jiraUrl: created.url,
+      summary: payload.summary,
+      issueType: created.issueType ?? "Bug",
+      reporter: ctx.reporter ?? null,
+      page: ctx.page
+        ? {
+            title: ctx.page.title ?? "",
+            url: ctx.page.url ?? "",
+            language: ctx.page.language ?? "",
+            site: ctx.page.site ?? ""
+          }
+        : null,
+      rendering: ctx.rendering
+        ? {
+            instanceId: ctx.rendering.instanceId,
+            renderingId: ctx.rendering.renderingId,
+            name: ctx.rendering.name,
+            templateName: ctx.rendering.templateName,
+            placeholderKey: ctx.rendering.placeholderKey
+          }
+        : null,
+      datasourceId: ctx.rendering?.dataSource ?? null,
+      createdAt: new Date().toISOString()
+    });
   }
 
   async getCreateMeta(

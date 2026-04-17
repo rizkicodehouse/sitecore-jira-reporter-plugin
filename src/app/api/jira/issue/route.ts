@@ -2,9 +2,6 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { verifySdkSession, getTenantId } from "@/lib/auth";
 import { getSettingsStore } from "@/lib/settings-store";
-import {
-  resolveReportsStore
-} from "@/app/api/_lib/resolve-reports-store";
 import { getJiraQueue } from "@/lib/rate-limit";
 import { mapJiraError } from "@/lib/jira-errors";
 import { buildDescription } from "@/lib/adf";
@@ -254,47 +251,15 @@ export async function POST(req: Request) {
       }
     }
     const jiraUrl = `${creds.baseUrl}/browse/${created.key}`;
-    if (tenantId) {
-      try {
-        await resolveReportsStore(req).append(tenantId, {
-          jiraKey: created.key,
-          jiraUrl,
-          summary: parsed.summary,
-          issueType,
-          reporter: parsed.context.reporter,
-          page: parsed.context.page,
-          rendering: parsed.context.rendering
-            ? {
-                instanceId:
-                  parsed.context.rendering.instanceId,
-                renderingId:
-                  parsed.context.rendering.renderingId,
-                name: parsed.context.rendering.name,
-                templateName:
-                  parsed.context.rendering.templateName,
-                placeholderKey:
-                  parsed.context.rendering.placeholderKey
-              }
-            : null,
-          datasourceId:
-            parsed.context.rendering?.dataSource ?? null,
-          createdAt: new Date().toISOString()
-        });
-      } catch (e) {
-        // Persistence is best-effort: never block the
-        // client response on local store failures. The
-        // issue was already created in Jira.
-        if (process.env.NODE_ENV !== "production") {
-          console.warn(
-            "[jira-reporter] reports-store append failed",
-            (e as Error).message
-          );
-        }
-      }
-    }
+    // Historic path wrote the BugReport Sitecore item here
+    // via resolveReportsStore. XMC Authoring isn't reachable
+    // from the server anymore (no bearer token from the
+    // iframe SDK), so the browser now writes the item itself
+    // after this response — see features/report-bug code.
     return NextResponse.json({
       key: created.key,
-      url: jiraUrl
+      url: jiraUrl,
+      issueType
     }, { status: 201 });
   } catch {
     return respondError(502, {

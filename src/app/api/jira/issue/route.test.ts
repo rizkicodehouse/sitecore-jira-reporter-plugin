@@ -5,9 +5,6 @@ import { randomBytes } from "node:crypto";
 import { POST } from "./route";
 import { resetJiraQueueForTests } from "@/lib/rate-limit";
 import {
-  getReportsStore, resetReportsStoreForTests
-} from "@/lib/reports-store";
-import {
   getSettingsStore, resetSettingsStoreForTests
 } from "@/lib/settings-store";
 import { resetCryptoForTests } from "@/lib/crypto";
@@ -70,7 +67,6 @@ const validBody = {
 describe("POST /api/jira/issue", () => {
   beforeEach(() => {
     resetJiraQueueForTests();
-    resetReportsStoreForTests();
     resetSettingsStoreForTests();
     process.env.SETTINGS_ENCRYPTION_KEY =
       randomBytes(32).toString("base64");
@@ -98,7 +94,7 @@ describe("POST /api/jira/issue", () => {
     expect(body.url).toContain("browse/CLD-1");
   });
 
-  it("persists report record after successful create",
+  it("returns the Jira issueType so the client can mirror the record",
      async () => {
     await seedTenantCreds("acme");
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(
@@ -108,35 +104,13 @@ describe("POST /api/jira/issue", () => {
     ));
     const res = await POST(mkReqForTenant("acme", {
       ...validBody,
-      summary: "Hero broken",
-      context: {
-        ...validBody.context,
-        rendering: {
-          instanceId: "i1", renderingId: "r1",
-          name: "Hero", templateName: "T",
-          dataSource: "/sitecore/content/ds"
-        }
-      }
+      summary: "Hero broken"
     }));
     expect(res.status).toBe(201);
-    const page = await getReportsStore().list("acme");
-    expect(page.total).toBe(1);
-    const first = page.items[0]!;
-    expect(first.jiraKey).toBe("CLD-42");
-    expect(first.summary).toBe("Hero broken");
-    expect(first.rendering?.name).toBe("Hero");
-    expect(first.datasourceId).toBe("/sitecore/content/ds");
-  });
-
-  it("does not persist when JIRA create fails",
-     async () => {
-    await seedTenantCreds("acme");
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(
-      new Response("err", { status: 500 })
-    ));
-    await POST(mkReqForTenant("acme", validBody));
-    const page = await getReportsStore().list("acme");
-    expect(page.total).toBe(0);
+    const body = await res.json();
+    expect(body.key).toBe("CLD-42");
+    expect(body.issueType).toBe("Bug");
+    expect(body.url).toContain("browse/CLD-42");
   });
 
   it("maps upstream 401 to config error", async () => {
