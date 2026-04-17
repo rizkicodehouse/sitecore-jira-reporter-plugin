@@ -66,6 +66,15 @@ function fieldsToMap(
   return out;
 }
 
+// Search-index IDs are stored in compact form: no braces,
+// no dashes, lowercase (confirmed via the probe search in
+// /debug-xmc-schema, which returned items like
+// "11111111111111111111111111111111"). Filter values must
+// use this form or they match nothing.
+function toIndexId(id: string): string {
+  return id.replace(/[{}\-]/g, "").toLowerCase();
+}
+
 // XMC Authoring's ID scalar parses as a GUID and rejects
 // Sitecore's braced form (e.g., "{A87A00B1-...}") with
 // "Unable to convert type from String to Guid". Our
@@ -243,7 +252,9 @@ export function createSdkXmcClient(
           } | null> | null;
         } | null;
       }>(SEARCH_ITEMS_QUERY, {
-        templateId: stripBraces(args.templateId),
+        // Search-index storage format, not the ID-scalar
+        // format used by mutations.
+        templateId: toIndexId(args.templateId),
         pageIndex, pageSize
       });
       // args.rootPath is accepted for API compatibility
