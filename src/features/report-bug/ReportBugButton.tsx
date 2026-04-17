@@ -2,7 +2,7 @@
 import { FC } from "react";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/lib/icon";
-import { mdiBugOutline } from "@mdi/js";
+import { mdiLadybug } from "@mdi/js";
 
 export type ReportBugButtonProps = {
   disabled: boolean;
@@ -26,7 +26,7 @@ export const ReportBugButton: FC<ReportBugButtonProps> = (
       : "Report a bug for the selected component"}
     className={REPORT_BUG_BUTTON_CLASS}
   >
-    <Icon path={mdiBugOutline} aria-hidden />
+    <Icon path={mdiLadybug} aria-hidden />
     Report bug
   </Button>
 );

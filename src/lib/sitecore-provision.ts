@@ -6,8 +6,14 @@ import {
   bugReportsRootPath
 } from "@/services/sitecore/templates";
 import {
-  ensureFeatureTemplates
+  ensureFeatureTemplates, PLUGIN_BUG_ICON
 } from "@/services/sitecore/template-provision";
+
+// __Icon is Sitecore's "override the template's icon on
+// this specific item" field. Setting it on the folders,
+// Config, and the Bug Reports bucket makes the plugin
+// instantly findable in Content Editor.
+const ICON_FIELD = { name: "__Icon", value: PLUGIN_BUG_ICON };
 
 export type ProvisionArgs = {
   client: XmcClient;
@@ -93,7 +99,7 @@ export async function provisionPluginSite(
       parent: settingsRoot,
       templateId: TEMPLATE_ID_FOLDER,
       language,
-      fields: []
+      fields: [ICON_FIELD]
     });
   }
 
@@ -107,7 +113,7 @@ export async function provisionPluginSite(
       parent: folderPath,
       templateId: templateIds.settingsTemplateId,
       language,
-      fields: []
+      fields: [ICON_FIELD]
     });
   }
 
@@ -121,7 +127,7 @@ export async function provisionPluginSite(
       parent: dataRoot,
       templateId: TEMPLATE_ID_FOLDER,
       language,
-      fields: []
+      fields: [ICON_FIELD]
     });
     // Flip the item-bucket flag so child BugReport items get
     // auto-distributed into yyyy/MM/dd buckets. This is a

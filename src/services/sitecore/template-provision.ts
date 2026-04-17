@@ -24,6 +24,13 @@ export const BUG_REPORT_TEMPLATE_PATH =
 export const TEMPLATE_FOLDER_TEMPLATE_ID =
   "{0437FEE2-44C9-46A6-ABE9-28858D9FEE8C}";
 
+// Standard Sitecore Office icon for anything this plugin
+// owns in the content tree — templates, folders, the
+// config item, and the bug-reports bucket. Picked for
+// Content-Editor recognisability; the browser-side UI uses
+// MDI's ladybug glyph instead.
+export const PLUGIN_BUG_ICON = "Office/32x32/bug.png";
+
 export type ResolvedTemplateIds = {
   settingsTemplateId: string;
   bugReportTemplateId: string;
@@ -214,6 +221,7 @@ async function createTemplate(
     { input: {
         name: input.name,
         parent: stripBraces(parentItem.itemId),
+        icon: PLUGIN_BUG_ICON,
         sections: input.sections
     } }
   );
