@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { verifySdkSession, getTenantId } from "@/lib/auth";
-import { resolveJiraCreds } from "@/lib/jira-creds";
+import { resolveJiraCredsFromRequest } from "@/lib/jira-creds";
 import {
   fetchCreateMetaFields
 } from "@/lib/jira-create-meta";
@@ -17,7 +17,7 @@ export async function GET(req: Request) {
     return fail(400, "meta.missing-params");
   }
   const tenantId = getTenantId(req);
-  const creds = await resolveJiraCreds(tenantId);
+  const creds = await resolveJiraCredsFromRequest(req, tenantId);
   if (creds.source === "none") {
     return fail(412, "meta.not-configured");
   }

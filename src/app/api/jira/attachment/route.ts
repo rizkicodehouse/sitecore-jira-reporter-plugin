@@ -3,7 +3,7 @@ import { verifySdkSession, getTenantId } from "@/lib/auth";
 import { getJiraQueue } from "@/lib/rate-limit";
 import { mapJiraError } from "@/lib/jira-errors";
 import {
-  resolveJiraCreds, basicAuthHeader
+  resolveJiraCredsFromRequest, basicAuthHeader
 } from "@/lib/jira-creds";
 
 export async function POST(req: Request) {
@@ -17,7 +17,7 @@ export async function POST(req: Request) {
   if (!(file instanceof Blob)) {
     return err(400, "attach.no-file");
   }
-  const creds = await resolveJiraCreds(getTenantId(req));
+  const creds = await resolveJiraCredsFromRequest(req, getTenantId(req));
   if (creds.source === "none") {
     return err(412, "attach.not-configured");
   }

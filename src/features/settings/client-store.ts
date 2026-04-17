@@ -51,6 +51,23 @@ export async function loadClientSettings(
   return toPublic(stored);
 }
 
+// Variant that also returns the ciphertext, for callers
+// that need to forward creds to server Jira routes (they
+// still call Atlassian on behalf of the user). Plaintext is
+// never produced here — the server decrypts in-process.
+export async function loadClientStoredSettings(
+  ctx: ClientSettingsContext
+): Promise<StoredSettings> {
+  const repo = createSettingsSitecoreRepo({
+    client: ctx.xmcClient
+  });
+  const provisioned = await repo.exists(ctx.tenant, ctx.site);
+  if (!provisioned) {
+    throw { category: "not-provisioned" };
+  }
+  return repo.read(ctx.tenant, ctx.site);
+}
+
 export async function saveClientSettings(
   ctx: ClientSettingsContext, update: SettingsUpdate
 ): Promise<PublicSettings> {

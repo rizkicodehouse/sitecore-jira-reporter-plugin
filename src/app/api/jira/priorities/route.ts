@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { verifySdkSession, getTenantId } from "@/lib/auth";
 import {
-  resolveJiraCreds, basicAuthHeader
+  resolveJiraCredsFromRequest, basicAuthHeader
 } from "@/lib/jira-creds";
 import { getJiraQueue } from "@/lib/rate-limit";
 
@@ -15,7 +15,7 @@ export async function GET(req: Request) {
     logCode: "jira.priorities.auth"
   });
   const tenantId = getTenantId(req);
-  const creds = await resolveJiraCreds(tenantId);
+  const creds = await resolveJiraCredsFromRequest(req, tenantId);
   if (creds.source === "none") {
     return respondError(412, {
       category: "config",

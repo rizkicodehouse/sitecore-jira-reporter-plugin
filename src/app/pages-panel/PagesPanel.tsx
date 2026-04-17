@@ -42,8 +42,12 @@ import {
 } from "@/services/screenshot/capture";
 import {
   loadClientSettings, saveClientSettings,
+  loadClientStoredSettings,
   type ClientSettingsContext
 } from "@/features/settings/client-store";
+import type {
+  JiraCredsForRequest, JiraSettingsForIssue
+} from "@/services/jira/client";
 
 export type PagesPanelProps = {
   skipAuthForTests?: boolean;
@@ -76,6 +80,15 @@ export const PagesPanel: FC<PagesPanelProps> = (
     useState<SiteScope | null>(null);
   const [provisioned, setProvisioned] =
     useState<boolean | null>(null);
+  // Cached Jira creds + project settings so the Jira side-
+  // routes (priorities, create-meta, user-search, issue)
+  // can make authenticated calls without re-reading
+  // Sitecore. Loaded lazily when the user opens settings or
+  // the report dialog.
+  const [jiraCreds, setJiraCreds] =
+    useState<JiraCredsForRequest | null>(null);
+  const [jiraSettings, setJiraSettings] =
+    useState<JiraSettingsForIssue | null>(null);
   const xmcClient = useXmcClient(
     marketplaceClient, sitecoreContextId
   );
@@ -337,7 +350,9 @@ export const PagesPanel: FC<PagesPanelProps> = (
   });
   const jira = new JiraClient({
     tenantId, userEmail, userName,
-    xmcClient, siteScope
+    xmcClient, siteScope,
+    creds: jiraCreds,
+    settings: jiraSettings
   });
 
   const identity = { tenantId, userEmail, userName };
@@ -382,11 +397,52 @@ export const PagesPanel: FC<PagesPanelProps> = (
   const saveSettings = useCallback(
     async (next: SettingsUpdate) => {
       const ctx = resolveSettingsCtx();
-      return saveClientSettings(ctx, next);
+      const saved = await saveClientSettings(ctx, next);
+      // Refresh the Jira creds cache after a successful
+      // save so the next ticket submission uses the new
+      // credentials without requiring a hard reload.
+      void primeJiraCache();
+      return saved;
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [xmcClient, siteScope, tenantId, userEmail, userName]
   );
+
+  const primeJiraCache = useCallback(async () => {
+    if (!xmcClient || !siteScope) return;
+    try {
+      const stored = await loadClientStoredSettings({
+        xmcClient,
+        tenant: siteScope.tenant,
+        site: siteScope.site,
+        tenantId,
+        authHeaders: buildAuthHeaders(identity)
+      });
+      setJiraCreds(
+        stored.jiraBaseUrl && stored.jiraServiceEmail
+          && stored.jiraApiTokenEnc
+          ? {
+              baseUrl: stored.jiraBaseUrl,
+              serviceEmail: stored.jiraServiceEmail,
+              apiTokenEnc: stored.jiraApiTokenEnc
+            }
+          : null
+      );
+      setJiraSettings({
+        projectKey: stored.projectKey,
+        defaultIssueType: stored.defaultIssueType,
+        defaultLabels: stored.defaultLabels,
+        defaultBoardId: stored.defaultBoardId
+      });
+    } catch {
+      setJiraCreds(null);
+      setJiraSettings(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [xmcClient, siteScope, tenantId, userEmail, userName]);
+
+  useEffect(() => { void primeJiraCache(); },
+    [primeJiraCache]);
 
   if (sessionState === "needs-login") {
     return (

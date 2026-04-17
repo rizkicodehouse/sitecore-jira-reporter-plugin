@@ -6,7 +6,7 @@ import { getJiraQueue } from "@/lib/rate-limit";
 import { mapJiraError } from "@/lib/jira-errors";
 import { buildDescription } from "@/lib/adf";
 import {
-  resolveJiraCreds, basicAuthHeader
+  resolveJiraCredsFromRequest, basicAuthHeader
 } from "@/lib/jira-creds";
 import {
   getBoardSprintInfo, addIssueToSprint
@@ -48,7 +48,16 @@ const BodySchema = z.object({
   }).nullable().optional(),
   priority: z.object({
     id: z.string().min(1)
-  }).nullable().optional()
+  }).nullable().optional(),
+  // Client forwards the project-level settings fragment so
+  // the server doesn't need to re-read them from Sitecore.
+  // Optional to keep the env-var / legacy dev path working.
+  settings: z.object({
+    projectKey: z.string().min(1),
+    defaultIssueType: z.string().min(1),
+    defaultLabels: z.array(z.string()),
+    defaultBoardId: z.number().int().positive().nullable()
+  }).optional()
 });
 
 export async function POST(req: Request) {
@@ -69,7 +78,7 @@ export async function POST(req: Request) {
     });
   }
   const tenantId = getTenantId(req);
-  const creds = await resolveJiraCreds(tenantId);
+  const creds = await resolveJiraCredsFromRequest(req, tenantId);
   if (creds.source === "none") {
     return respondError(412, {
       category: "config",
@@ -79,15 +88,16 @@ export async function POST(req: Request) {
       logCode: "jira.issue.not-configured"
     });
   }
-  const settings = tenantId
+  // Client-side XMC mode: settings come in the request
+  // body. Legacy mode: fall back to the memory singleton or
+  // env vars.
+  const legacy = tenantId
     ? await getSettingsStore().get(tenantId)
     : null;
-  // Tenant record is authoritative. Env is ONLY used
-  // when there's no tenant at all (single-tenant dev
-  // fallback). Mixing them hides tenant misconfiguration.
-  const projectKey = settings
-    ? settings.projectKey
-    : process.env.JIRA_DEFAULT_PROJECT_KEY ?? "";
+  const projectKey = parsed.settings?.projectKey
+    ?? legacy?.projectKey
+    ?? process.env.JIRA_DEFAULT_PROJECT_KEY
+    ?? "";
   if (!projectKey) {
     return respondError(412, {
       category: "config",
@@ -97,12 +107,16 @@ export async function POST(req: Request) {
       logCode: "jira.issue.no-project"
     });
   }
-  const issueType = settings
-    ? settings.defaultIssueType
-    : process.env.JIRA_DEFAULT_ISSUE_TYPE ?? "Bug";
-  const labels = settings
-    ? settings.defaultLabels
-    : ["page-builder"];
+  const issueType = parsed.settings?.defaultIssueType
+    ?? legacy?.defaultIssueType
+    ?? process.env.JIRA_DEFAULT_ISSUE_TYPE
+    ?? "Bug";
+  const labels = parsed.settings?.defaultLabels
+    ?? legacy?.defaultLabels
+    ?? ["page-builder"];
+  const defaultBoardId = parsed.settings?.defaultBoardId
+    ?? legacy?.defaultBoardId
+    ?? null;
   const assigneeAccountId =
     parsed.assignee?.accountId ?? null;
   const priorityId = parsed.priority?.id ?? null;
@@ -223,7 +237,7 @@ export async function POST(req: Request) {
         }
       }
     }
-    const boardId = settings?.defaultBoardId ?? null;
+    const boardId = defaultBoardId;
     if (boardId) {
       try {
         const info = await getBoardSprintInfo(

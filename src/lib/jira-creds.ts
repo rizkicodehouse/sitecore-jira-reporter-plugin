@@ -1,19 +1,82 @@
 import { getSettingsStore } from "./settings-store";
+import { decryptSecret } from "./crypto";
 
 export type JiraCreds = {
   baseUrl: string;
   serviceEmail: string;
   apiToken: string;
-  source: "tenant" | "env" | "none";
+  source: "tenant" | "env" | "request" | "none";
 };
+
+// The client forwards its loaded settings alongside every
+// Jira request via a base64-encoded JSON header so the
+// server-side Jira routes can make authenticated calls to
+// Atlassian without needing to read settings from Sitecore
+// itself. Ciphertext is decrypted in-process using the
+// plugin's KEK; plaintext never leaves the server process.
+export const JIRA_CREDS_HEADER = "x-jira-creds";
+
+type JiraCredsHeaderPayload = {
+  baseUrl: string;
+  serviceEmail: string;
+  apiTokenEnc: string;
+};
+
+function readCredsHeader(
+  req: Request
+): JiraCredsHeaderPayload | null {
+  const raw = req.headers.get(JIRA_CREDS_HEADER);
+  if (!raw) return null;
+  try {
+    const decoded = Buffer
+      .from(raw, "base64").toString("utf8");
+    const parsed = JSON.parse(decoded) as
+      Partial<JiraCredsHeaderPayload>;
+    if (!parsed.baseUrl || !parsed.serviceEmail ||
+        !parsed.apiTokenEnc) {
+      return null;
+    }
+    return {
+      baseUrl: parsed.baseUrl,
+      serviceEmail: parsed.serviceEmail,
+      apiTokenEnc: parsed.apiTokenEnc
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function resolveJiraCredsFromRequest(
+  req: Request, tenantId: string | null
+): Promise<JiraCreds> {
+  // 1. Prefer the client-forwarded header — this is the
+  // only path that works in the client-side XMC mode.
+  const header = readCredsHeader(req);
+  if (header && tenantId) {
+    try {
+      const apiToken = await decryptSecret(
+        header.apiTokenEnc, tenantId
+      );
+      if (apiToken) {
+        return {
+          baseUrl: normalizeBaseUrl(header.baseUrl),
+          serviceEmail: header.serviceEmail,
+          apiToken,
+          source: "request"
+        };
+      }
+    } catch { /* fall through to legacy paths */ }
+  }
+  return resolveJiraCreds(tenantId);
+}
 
 export async function resolveJiraCreds(
   tenantId: string | null
 ): Promise<JiraCreds> {
-  // If there's a tenant record, it is authoritative:
-  // either fully configured (use it) or partially
-  // configured (source = "none"; don't silently mix
-  // with env). Env is only for the no-tenant case.
+  // Legacy path — kept for env-only deployments. The in-
+  // memory tenant-settings singleton is empty in the
+  // client-side XMC mode, so this mostly serves as the
+  // JIRA_* env-variable fallback for standalone dev.
   if (tenantId) {
     const s = await getSettingsStore().get(tenantId);
     const tokenPlain = s.jiraApiTokenEnc

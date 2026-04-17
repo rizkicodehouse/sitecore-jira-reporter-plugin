@@ -8,6 +8,44 @@ import {
   createReportsSitecoreRepo
 } from "@/lib/reports-sitecore-repo";
 
+// Creds + project defaults that the server Jira routes
+// need. The client reads them from the Sitecore settings
+// item and passes them per-request; the server never reads
+// Sitecore itself anymore (no bearer token from the iframe
+// SDK).
+export type JiraCredsForRequest = {
+  baseUrl: string;
+  serviceEmail: string;
+  // Ciphertext produced by /api/crypto/encrypt. The server
+  // decrypts in-process using the plugin's KEK.
+  apiTokenEnc: string;
+};
+
+export type JiraSettingsForIssue = {
+  projectKey: string;
+  defaultIssueType: string;
+  defaultLabels: string[];
+  defaultBoardId: number | null;
+};
+
+const JIRA_CREDS_HEADER = "x-jira-creds";
+
+function encodeCreds(
+  creds: JiraCredsForRequest | null | undefined
+): string | null {
+  if (!creds?.baseUrl || !creds?.serviceEmail ||
+      !creds?.apiTokenEnc) {
+    return null;
+  }
+  // btoa is browser-safe for ASCII JSON; fields are URLs/
+  // emails/base64 ciphertext so no unicode concerns.
+  return btoa(JSON.stringify({
+    baseUrl: creds.baseUrl,
+    serviceEmail: creds.serviceEmail,
+    apiTokenEnc: creds.apiTokenEnc
+  }));
+}
+
 export type CreateIssuePayload = {
   summary: string;
   descriptionText: string;
@@ -48,19 +86,28 @@ export class JiraClient {
       userName?: string;
       xmcClient?: XmcClient | null;
       siteScope?: SiteScope | null;
+      creds?: JiraCredsForRequest | null;
+      settings?: JiraSettingsForIssue | null;
     } = {}
   ) {}
 
   private headers(
     extra: Record<string, string> = {}
   ): Record<string, string> {
-    return buildAuthHeaders(this.opts, extra);
+    const base = buildAuthHeaders(this.opts, extra);
+    const encoded = encodeCreds(this.opts.creds ?? null);
+    if (encoded) {
+      return { ...base, [JIRA_CREDS_HEADER]: encoded };
+    }
+    return base;
   }
 
   async createIssue(
     payload: CreateIssuePayload
   ): Promise<CreateIssueResult> {
-    const body: CreateIssuePayload = {
+    const body: CreateIssuePayload & {
+      settings?: JiraSettingsForIssue;
+    } = {
       summary: payload.summary,
       descriptionText: payload.descriptionText,
       context: payload.context,
@@ -70,7 +117,9 @@ export class JiraClient {
       ...(payload.assignee !== undefined
         ? { assignee: payload.assignee } : {}),
       ...(payload.priority !== undefined
-        ? { priority: payload.priority } : {})
+        ? { priority: payload.priority } : {}),
+      ...(this.opts.settings
+        ? { settings: this.opts.settings } : {})
     };
     const res = await fetch("/api/jira/issue", {
       method: "POST",
