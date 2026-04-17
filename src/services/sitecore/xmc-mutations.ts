@@ -69,6 +69,11 @@ export const SEARCH_ITEMS_QUERY = `
       results {
         itemId
         path
+        innerItem {
+          fields(ownFields: false) {
+            nodes { name value }
+          }
+        }
       }
     }
   }

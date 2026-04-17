@@ -11,7 +11,6 @@
 
 import {
   ITEM_BY_PATH_QUERY,
-  ITEM_BY_ID_QUERY,
   CREATE_ITEM_MUTATION,
   UPDATE_ITEM_MUTATION,
   SEARCH_ITEMS_QUERY
@@ -240,6 +239,9 @@ export function createSdkXmcClient(
           results?: Array<{
             itemId?: string;
             path?: string;
+            innerItem?: {
+              fields?: { nodes?: SitecoreField[] };
+            } | null;
           } | null> | null;
         } | null;
       }>(SEARCH_ITEMS_QUERY, {
@@ -251,46 +253,29 @@ export function createSdkXmcClient(
       void args.rootPath;
       const search = data.search;
       const totalCount = search?.totalCount ?? 0;
-      const results = (search?.results ?? [])
-        .filter((r): r is { itemId: string; path: string } =>
-          Boolean(r?.itemId && r?.path)
-        );
-      // SearchResultItem only carries itemId + path in the
-      // index — rehydrate full field values via the normal
-      // item resolver so downstream repos still get the
-      // shape they expect. Parallelised because the plugin
-      // caps a reports page at 50 items.
-      const items = await Promise.all(
-        results.map(async (r) => {
-          try {
-            const hydrated = await gql<{
-              item: null | {
-                itemId: string; path: string;
-                fields: { nodes: SitecoreField[] };
-              };
-            }>(ITEM_BY_ID_QUERY, { itemId: r.itemId });
-            if (!hydrated.item) return null;
-            return {
-              itemId: hydrated.item.itemId,
-              path: hydrated.item.path,
-              fields: fieldsToMap(hydrated.item.fields.nodes)
-            };
-          } catch {
-            return null;
-          }
-        })
-      );
-      const populated = items.filter(
-        (i): i is NonNullable<typeof i> => Boolean(i)
-      );
+      // SearchResultItem.innerItem resolves to the full Item
+      // object so we get fields in the same round-trip
+      // instead of needing a per-result ItemByIdQuery call.
+      const items = (search?.results ?? [])
+        .filter((r): r is {
+          itemId: string; path: string;
+          innerItem?: {
+            fields?: { nodes?: SitecoreField[] };
+          } | null;
+        } => Boolean(r?.itemId && r?.path))
+        .map((r) => ({
+          itemId: r.itemId,
+          path: r.path,
+          fields: fieldsToMap(r.innerItem?.fields?.nodes)
+        }));
       const nextPageIndex = pageIndex + 1;
-      const hasNext = populated.length === pageSize &&
-        pageIndex * pageSize + populated.length < totalCount;
+      const hasNext = items.length === pageSize &&
+        pageIndex * pageSize + items.length < totalCount;
       return {
         totalCount,
         endCursor: hasNext ? String(nextPageIndex) : null,
         hasNext,
-        items: populated
+        items
       };
     },
 
