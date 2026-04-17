@@ -99,12 +99,74 @@ const INTROSPECT_QUERIES: Record<string, string> = {
       }
     }
   `,
-  "Probe search call (empty query)": `
+  "SearchStatementInput fields": `
+    query {
+      __type(name: "SearchStatementInput") {
+        name kind
+        inputFields {
+          name
+          type {
+            kind name
+            ofType {
+              kind name
+              ofType { kind name }
+            }
+          }
+        }
+      }
+    }
+  `,
+  "SearchCriteriaInput / SearchFieldCriteriaInput fields": `
+    query {
+      criteria: __type(name: "SearchCriteriaInput") {
+        name kind
+        inputFields {
+          name
+          type { kind name ofType { kind name } }
+        }
+      }
+      fieldCriteria: __type(name: "SearchFieldCriteriaInput") {
+        name kind
+        inputFields {
+          name
+          type { kind name ofType { kind name } }
+        }
+      }
+      statementCriteria: __type(name: "SearchStatementCriteriaInput") {
+        name kind
+        inputFields {
+          name
+          type { kind name ofType { kind name } }
+        }
+      }
+      operator: __type(name: "SearchCriteriaOperator") {
+        name kind
+        enumValues { name }
+      }
+    }
+  `,
+  "SearchPagingInput fields": `
+    query {
+      __type(name: "SearchPagingInput") {
+        name kind
+        inputFields {
+          name
+          type { kind name ofType { kind name } }
+        }
+      }
+    }
+  `,
+  "Probe search — return actual result shape": `
     query {
       search(query: {
-        paging: { pageIndex: 0, pageSize: 5 }
+        paging: { pageIndex: 0, pageSize: 2 }
       }) {
         totalCount
+        results {
+          __typename
+          itemId
+          path
+        }
       }
     }
   `
