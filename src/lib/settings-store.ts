@@ -1,47 +1,22 @@
-import { z } from "zod";
 import { encryptSecret, decryptSecret } from "./crypto";
 import type {
   SettingsSitecoreRepo
 } from "./settings-sitecore-repo";
+import {
+  PublicSettingsSchema,
+  SettingsUpdateSchema,
+  DEFAULT_SETTINGS,
+  type PublicSettings,
+  type SettingsUpdate,
+  type StoredSettings
+} from "./settings-types";
 
-export const PublicSettingsSchema = z.object({
-  projectKey: z.string().min(1),
-  defaultIssueType: z.string().min(1),
-  defaultLabels: z.array(z.string()),
-  defaultBoardId: z.number().int().positive().nullable(),
-  jiraBaseUrl: z.string(),
-  jiraServiceEmail: z.string(),
-  hasJiraApiToken: z.boolean(),
-  adminEmails: z.array(z.string())
-});
-export type PublicSettings = z.infer<typeof PublicSettingsSchema>;
-
-export const SettingsUpdateSchema = z.object({
-  projectKey: z.string().min(1),
-  defaultIssueType: z.string().min(1),
-  defaultLabels: z.array(z.string()),
-  defaultBoardId: z.number().int().positive().nullable(),
-  jiraBaseUrl: z.string().url().or(z.literal("")),
-  jiraServiceEmail: z.string(),
-  jiraApiToken: z.string().optional(),
-  adminEmails: z.array(z.string())
-});
-export type SettingsUpdate = z.infer<typeof SettingsUpdateSchema>;
-
-export type StoredSettings = Omit<
-  SettingsUpdate, "jiraApiToken"
-> & { jiraApiTokenEnc: string | null };
-
-export const DEFAULT_SETTINGS: StoredSettings = {
-  projectKey: "",
-  defaultIssueType: "Bug",
-  defaultLabels: ["page-builder"],
-  defaultBoardId: null,
-  jiraBaseUrl: "",
-  jiraServiceEmail: "",
-  jiraApiTokenEnc: null,
-  adminEmails: []
+export {
+  PublicSettingsSchema,
+  SettingsUpdateSchema,
+  DEFAULT_SETTINGS
 };
+export type { PublicSettings, SettingsUpdate, StoredSettings };
 
 export type StoreOptions = {
   driver: "memory" | "sitecore";

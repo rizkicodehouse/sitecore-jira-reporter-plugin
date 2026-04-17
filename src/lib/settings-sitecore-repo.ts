@@ -5,7 +5,7 @@ import {
 } from "@/services/sitecore/templates";
 import {
   DEFAULT_SETTINGS, type StoredSettings
-} from "./settings-store";
+} from "./settings-types";
 
 export type SettingsSitecoreRepoOptions = {
   client: XmcClient;

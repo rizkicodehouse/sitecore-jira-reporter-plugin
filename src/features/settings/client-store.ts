@@ -14,7 +14,7 @@ import {
   type PublicSettings,
   type SettingsUpdate,
   type StoredSettings
-} from "@/lib/settings-store";
+} from "@/lib/settings-types";
 
 export type ClientSettingsContext = {
   xmcClient: XmcClient;
