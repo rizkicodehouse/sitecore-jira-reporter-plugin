@@ -117,33 +117,43 @@ export async function provisionPluginSite(
     });
   }
 
-  // 3. Ensure the Data/Bug Reports bucket.
+  // 3. Ensure the Data/Bug Reports bucket. Set __Bucket=1
+  // at creation AND reapply on every provision run so
+  // existing folders (from earlier installs that didn't
+  // flag them as buckets) get upgraded without requiring
+  // a teardown.
   const reportsPath = bugReportsRootPath(tenant, site);
   const existingReports =
     await client.itemByPath(reportsPath, language);
-  if (!existingReports) {
-    const created = await client.createItem({
-      name: "Bug Reports",
-      parent: dataRoot,
-      templateId: TEMPLATE_ID_FOLDER,
-      language,
-      fields: [ICON_FIELD]
-    });
-    // Flip the item-bucket flag so child BugReport items get
-    // auto-distributed into yyyy/MM/dd buckets. This is a
-    // best-effort update — if the editor's role can't set
-    // __Bucket, the plugin still works (ticket records just
-    // accumulate as flat children until an admin enables
-    // the bucket manually).
-    try {
-      await client.updateItem({
-        itemId: created.itemId,
+  const reportsItem = existingReports
+    ? existingReports
+    : await client.createItem({
+        name: "Bug Reports",
+        parent: dataRoot,
+        templateId: TEMPLATE_ID_FOLDER,
         language,
-        fields: [{ name: "__Bucket", value: "1" }]
+        fields: [
+          ICON_FIELD,
+          { name: "__Bucket", value: "1" }
+        ]
       });
-    } catch {
-      /* non-fatal — see docs/ops/bucket-setup.md */
-    }
+  try {
+    await client.updateItem({
+      itemId: reportsItem.itemId,
+      language,
+      fields: [{ name: "__Bucket", value: "1" }]
+    });
+  } catch (e) {
+    // Surface instead of swallowing so the next silent
+    // regression (e.g., insufficient role permission to
+    // set system fields) shows up in devtools rather than
+    // leaving bug reports stacked as flat children.
+    console.warn(
+      "[jira-reporter] failed to flag Bug Reports as a " +
+      "bucket. New reports will accumulate as direct " +
+      "children until __Bucket=1 is set in Content Editor.",
+      e
+    );
   }
 
   return templateIds;
