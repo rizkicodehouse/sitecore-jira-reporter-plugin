@@ -5,6 +5,9 @@ import {
   TEMPLATE_ID_BUG_REPORT
 } from "@/services/sitecore/templates";
 import {
+  BUG_REPORT_TEMPLATE_PATH
+} from "@/services/sitecore/template-provision";
+import {
   ReportRecordSchema, type ReportRecord, type ListPage
 } from "./reports-store";
 
@@ -38,11 +41,22 @@ export function createReportsSitecoreRepo(
   return {
     async append(tenant, site, record) {
       const parsed = ReportRecordSchema.parse(record);
+      // The template that ensureFeatureTemplates creates
+      // has a fresh GUID per tenant — not the hardcoded
+      // placeholder in TEMPLATE_ID_BUG_REPORT. Resolve the
+      // real id by path at write time so createItem
+      // references a template that actually exists in this
+      // Sitecore instance.
+      const tplItem = await client.itemByPath(
+        BUG_REPORT_TEMPLATE_PATH, lang
+      );
+      const templateId = tplItem?.itemId
+        ?? TEMPLATE_ID_BUG_REPORT;
       try {
         await client.createItem({
           name: parsed.jiraKey,
           parent: bugReportsRootPath(tenant, site),
-          templateId: TEMPLATE_ID_BUG_REPORT,
+          templateId,
           language: lang,
           fields: toFields(parsed)
         });

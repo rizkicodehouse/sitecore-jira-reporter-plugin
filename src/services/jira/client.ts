@@ -137,9 +137,19 @@ export class JiraClient {
     // XMC access, but the iframe SDK is now the only
     // authenticated Sitecore surface. Best-effort: Jira
     // issue is already real, so we don't fail the UI if the
-    // mirror write fails.
+    // mirror write fails — but DO log so the failure shows
+    // up in browser devtools instead of disappearing.
     await this.writeReportItem(payload, created)
-      .catch(() => { /* swallow — Jira creation succeeded */ });
+      .catch((e) => {
+        console.warn(
+          "[jira-reporter] BugReport item write failed " +
+          `after creating ${created.key}. ` +
+          "The Jira ticket is real; the fullscreen list " +
+          "won't include this one until the mirror " +
+          "succeeds on a later submission.",
+          e
+        );
+      });
     return { key: created.key, url: created.url };
   }
 
