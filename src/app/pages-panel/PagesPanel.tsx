@@ -7,10 +7,13 @@ import {
   parseRenderings,
   getHostUser
 } from "@/services/sitecore/context";
+import { useXmcClient } from "@/hooks/useXmcClient";
+import type {
+  MarketplaceMutator
+} from "@/services/sitecore/xmc-client-sdk";
 import {
-  readSdkContext, type SdkContext
-} from "@/services/sitecore/sdk-context";
-import { useScopedFetch } from "@/hooks/useScopedFetch";
+  parseSiteScopeFromPath, type SiteScope
+} from "@/services/sitecore/site-scope";
 import {
   InitialInstallationCard
 } from "./InitialInstallationCard";
@@ -32,6 +35,10 @@ import { buildAuthHeaders } from "@/lib/api-headers";
 import {
   captureVisibleTab, canCaptureScreen
 } from "@/services/screenshot/capture";
+import {
+  loadClientSettings, saveClientSettings,
+  type ClientSettingsContext
+} from "@/features/settings/client-store";
 
 export type PagesPanelProps = {
   skipAuthForTests?: boolean;
@@ -56,11 +63,13 @@ export const PagesPanel: FC<PagesPanelProps> = (
       skipAuthForTests ? "authenticated" : "unknown"
     );
   const [authPolling, setAuthPolling] = useState(false);
-  const [sdkContext, setSdkContext] =
-    useState<SdkContext | null>(null);
+  const [marketplaceClient, setMarketplaceClient] =
+    useState<MarketplaceMutator | null>(null);
+  const [siteScope, setSiteScope] =
+    useState<SiteScope | null>(null);
   const [provisioned, setProvisioned] =
     useState<boolean | null>(null);
-  const scopedFetch = useScopedFetch(sdkContext);
+  const xmcClient = useXmcClient(marketplaceClient);
 
   useEffect(() => {
     if (skipAuthForTests) return;
@@ -191,11 +200,13 @@ export const PagesPanel: FC<PagesPanelProps> = (
         setSdkReady(true);
         return;
       }
-      const mod = await import(
-        "@sitecore-marketplace-sdk/client"
-      );
-      const real = await mod.ClientSDK.init({
+      const [clientMod, xmcMod] = await Promise.all([
+        import("@sitecore-marketplace-sdk/client"),
+        import("@sitecore-marketplace-sdk/xmc")
+      ]);
+      const real = await clientMod.ClientSDK.init({
         target: window.parent,
+        modules: [xmcMod.XMC],
         ...(process.env
           .NEXT_PUBLIC_SITECORE_HOST_ORIGIN
           ? {
@@ -225,52 +236,16 @@ export const PagesPanel: FC<PagesPanelProps> = (
           )
       };
       initSitecoreContext(adapter);
-      // Production triage hook. Updated at every step so
-      // "stage" tells us how far the SDK handshake got even
-      // if a later step throws. `sitecore-context-missing`
-      // means one of these came back empty.
-      const debugBag: Record<string, unknown> = {
-        stage: "sdk-initialised"
-      };
-      const publishDebug = () => {
-        if (typeof window !== "undefined") {
-          (window as unknown as {
-            __scPluginDebug?: unknown;
-          }).__scPluginDebug = debugBag;
-        }
-      };
-      publishDebug();
+      setMarketplaceClient(
+        real as unknown as MarketplaceMutator
+      );
       try {
         const pagesCtx = await getPagesContext();
-        debugBag.pagesContext = pagesCtx;
-        debugBag.stage = "pages-context-loaded";
-        publishDebug();
-        const siteName = pagesCtx?.siteInfo?.name ?? "";
-        debugBag.siteName = siteName;
-        try {
-          const appRes = await adapter.query(
-            "application.context"
-          );
-          debugBag.applicationContext = appRes?.data ?? null;
-        } catch (e) {
-          debugBag.applicationContext = {
-            queryError: (e as Error).message
-          };
-        }
-        debugBag.stage = "application-context-queried";
-        publishDebug();
-        const resolved = siteName
-          ? await readSdkContext(adapter, siteName)
-          : null;
-        debugBag.resolvedSdkContext = resolved;
-        debugBag.stage = "resolved";
-        publishDebug();
-        setSdkContext(resolved);
-      } catch (e) {
-        debugBag.error = (e as Error).message;
-        debugBag.stage = "threw";
-        publishDebug();
-      }
+        const scope = parseSiteScopeFromPath(
+          pagesCtx?.pageInfo?.path
+        );
+        setSiteScope(scope);
+      } catch { /* scope stays null */ }
       setSdkReady(true);
     })();
   }, [skipAuthForTests]);
@@ -282,6 +257,10 @@ export const PagesPanel: FC<PagesPanelProps> = (
       try {
         const ctx = await getPagesContext();
         setHasSelection(Boolean(ctx?.pageInfo));
+        const scope = parseSiteScopeFromPath(
+          ctx?.pageInfo?.path
+        );
+        setSiteScope(scope);
       } catch {
         setHasSelection(false);
       }
@@ -336,41 +315,37 @@ export const PagesPanel: FC<PagesPanelProps> = (
 
   const identity = { tenantId, userEmail, userName };
 
-  async function loadSettings(): Promise<PublicSettings> {
-    const res = await scopedFetch("/api/settings", {
-      credentials: "include",
-      headers: buildAuthHeaders(identity)
-    });
-    if (res.status === 404) {
-      const body = await res.json().catch(() => ({}));
-      if (body?.error === "not-provisioned") {
-        setProvisioned(false);
-        throw { category: "not-provisioned" };
-      }
+  function resolveSettingsCtx(): ClientSettingsContext {
+    if (!xmcClient || !siteScope) {
+      throw { category: "sdk-not-ready" };
     }
-    if (!res.ok) throw await toErr(res);
-    setProvisioned(true);
-    return (await res.json()) as PublicSettings;
+    return {
+      xmcClient,
+      tenant: siteScope.tenant,
+      site: siteScope.site,
+      tenantId,
+      authHeaders: buildAuthHeaders(identity)
+    };
+  }
+
+  async function loadSettings(): Promise<PublicSettings> {
+    const ctx = resolveSettingsCtx();
+    try {
+      const res = await loadClientSettings(ctx);
+      setProvisioned(true);
+      return res;
+    } catch (e) {
+      const tag = (e as { category?: string })?.category;
+      if (tag === "not-provisioned") {
+        setProvisioned(false);
+      }
+      throw e;
+    }
   }
 
   async function saveSettings(next: SettingsUpdate) {
-    const res = await scopedFetch("/api/settings", {
-      method: "PUT",
-      credentials: "include",
-      headers: buildAuthHeaders(identity, {
-        "Content-Type": "application/json"
-      }),
-      body: JSON.stringify(next)
-    });
-    if (!res.ok) throw await toErr(res);
-    return (await res.json()) as PublicSettings;
-  }
-
-  async function toErr(res: Response) {
-    try {
-      const body = await res.json();
-      return body.error ?? {};
-    } catch { return {}; }
+    const ctx = resolveSettingsCtx();
+    return saveClientSettings(ctx, next);
   }
 
   if (sessionState === "needs-login") {
@@ -463,7 +438,8 @@ export const PagesPanel: FC<PagesPanelProps> = (
             {provisioned === false
               ? (
                 <InitialInstallationCard
-                  scopedFetch={scopedFetch}
+                  xmcClient={xmcClient}
+                  siteScope={siteScope}
                   onReady={() => setProvisioned(true)}
                 />
               )

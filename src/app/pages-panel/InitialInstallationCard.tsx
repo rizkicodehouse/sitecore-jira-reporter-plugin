@@ -1,8 +1,14 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
+import type { XmcClient } from "@/services/sitecore/xmc";
+import type { SiteScope } from "@/services/sitecore/site-scope";
+import {
+  provisionPluginSite
+} from "@/lib/sitecore-provision";
 
 export type InitialInstallationCardProps = {
-  scopedFetch: typeof fetch;
+  xmcClient: XmcClient | null;
+  siteScope: SiteScope | null;
   onReady: () => void;
 };
 
@@ -15,33 +21,21 @@ type Phase =
 type Step = { id: string; label: string };
 
 // Visible phases that map onto what provisionPluginSite
-// does server-side. The progress animation advances through
+// does client-side. The progress animation advances through
 // these at a realistic cadence so the editor gets a
-// meaningful activity indicator even though the server runs
-// them in one request.
+// meaningful activity indicator even though the provision
+// helper runs them sequentially inside one call.
 const STEPS: Step[] = [
-  {
-    id: "templates",
-    label: "Creating plugin templates"
-  },
-  {
-    id: "folders",
-    label: "Preparing Settings and Data folders"
-  },
-  {
-    id: "config",
-    label: "Seeding configuration item"
-  },
-  {
-    id: "bucket",
-    label: "Initialising bug reports bucket"
-  }
+  { id: "templates",
+    label: "Creating plugin templates" },
+  { id: "folders",
+    label: "Preparing Settings and Data folders" },
+  { id: "config",
+    label: "Seeding configuration item" },
+  { id: "bucket",
+    label: "Initialising bug reports bucket" }
 ];
 
-// ~800ms per step feels responsive without racing the API.
-// If the API returns earlier we snap to completion; if it
-// takes longer we pin at the final step and keep the bar
-// filled until the response arrives.
 const STEP_MS = 800;
 
 export function InitialInstallationCard(
@@ -76,33 +70,23 @@ export function InitialInstallationCard(
   };
 
   const run = async () => {
+    if (!props.xmcClient || !props.siteScope) {
+      setErr(
+        "Sitecore SDK isn't ready yet. Wait a moment and " +
+        "click Install again."
+      );
+      setPhase("error");
+      return;
+    }
     setPhase("running");
     setErr(null);
     startTicker();
     try {
-      const r = await props.scopedFetch(
-        "/api/provision", { method: "POST" }
-      );
-      if (!r.ok) {
-        const b = await r.json().catch(
-          () => ({} as Record<string, unknown>)
-        );
-        const base = typeof b.error === "string"
-          ? b.error : `HTTP ${r.status}`;
-        const missing = Array.isArray(
-          (b as { missing?: unknown }).missing
-        )
-          ? ((b as { missing: unknown[] }).missing)
-              .filter((x): x is string => typeof x === "string")
-          : [];
-        const detail = missing.length
-          ? `${base} (missing: ${missing.join(", ")})`
-          : base;
-        throw new Error(detail);
-      }
-      // Snap to the final step, transition to success after
-      // a short beat so the bar fill reads as completion
-      // before the card flips.
+      await provisionPluginSite({
+        client: props.xmcClient,
+        tenant: props.siteScope.tenant,
+        site: props.siteScope.site
+      });
       setStepIndex(STEPS.length - 1);
       timers.current.push(
         setTimeout(() => setPhase("success"), 350)
@@ -121,6 +105,9 @@ export function InitialInstallationCard(
     : Math.round(
         ((stepIndex + 1) / STEPS.length) * 100
       );
+
+  const canInstall =
+    Boolean(props.xmcClient) && Boolean(props.siteScope);
 
   return (
     <div
@@ -148,10 +135,13 @@ export function InitialInstallationCard(
       {phase === "idle" && (
         <button
           onClick={run}
-          className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-primary-600 via-pink-500 to-cyan-500 px-4 py-2 text-xs font-semibold text-white shadow-[0_10px_30px_-15px_rgba(110,63,255,0.6)] transition hover:brightness-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-400"
+          disabled={!canInstall}
+          className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-primary-600 via-pink-500 to-cyan-500 px-4 py-2 text-xs font-semibold text-white shadow-[0_10px_30px_-15px_rgba(110,63,255,0.6)] transition hover:brightness-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 disabled:cursor-not-allowed disabled:opacity-60"
           data-testid="initial-install-btn"
         >
-          Install on this site
+          {canInstall
+            ? "Install on this site"
+            : "Waiting for Sitecore…"}
         </button>
       )}
 
@@ -235,7 +225,8 @@ export function InitialInstallationCard(
           </p>
           <button
             onClick={run}
-            className="inline-flex w-fit items-center justify-center rounded-xl border border-primary-200 bg-white/80 px-3 py-1.5 text-xs font-semibold text-primary-700 shadow-sm hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-400"
+            disabled={!canInstall}
+            className="inline-flex w-fit items-center justify-center rounded-xl border border-primary-200 bg-white/80 px-3 py-1.5 text-xs font-semibold text-primary-700 shadow-sm hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 disabled:cursor-not-allowed disabled:opacity-60"
             data-testid="initial-install-btn"
           >
             Retry installation
