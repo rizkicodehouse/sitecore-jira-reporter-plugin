@@ -104,4 +104,31 @@ describe("createSdkXmcClient", () => {
     expect(page.items).toHaveLength(2);
     expect(page.items[0]?.fields).toEqual({ Title: "A" });
   });
+
+  it("treats null search response as an empty page", async () => {
+    const client = createSdkXmcClient(mutatorWith(() => ({
+      data: { search: null }
+    })));
+    const page = await client.searchItems({
+      rootPath: "/x", templateId: "tpl", first: 10
+    });
+    expect(page.totalCount).toBe(0);
+    expect(page.hasNext).toBe(false);
+    expect(page.endCursor).toBeNull();
+    expect(page.items).toEqual([]);
+  });
+
+  it("tolerates a search response missing pageInfo", async () => {
+    const client = createSdkXmcClient(mutatorWith(() => ({
+      data: { search: {
+        totalCount: 0, results: []
+      } }
+    })));
+    const page = await client.searchItems({
+      rootPath: "/x", templateId: "tpl", first: 10
+    });
+    expect(page.totalCount).toBe(0);
+    expect(page.hasNext).toBe(false);
+    expect(page.items).toEqual([]);
+  });
 });

@@ -140,31 +140,48 @@ export function createSdkXmcClient(
 
     async searchItems(args) {
       const data = await gql<{
-        search: {
-          totalCount: number;
-          pageInfo: {
-            endCursor: string | null; hasNext: boolean;
+        search?: {
+          totalCount?: number;
+          pageInfo?: {
+            endCursor?: string | null;
+            hasNext?: boolean;
           };
-          results: Array<{ innerItem: {
+          results?: Array<{ innerItem?: {
             itemId: string; path: string;
             fields: { nodes: SitecoreField[] };
           } }>;
-        };
+        } | null;
       }>(SEARCH_ITEMS_QUERY, {
         rootItem: args.rootPath,
         templates: args.templateId,
         first: args.first,
         after: args.after ?? null
       });
+      // Authoring GraphQL returns `search: null` when the
+      // index has no matches (rather than an empty result
+      // envelope). Treat that as an empty page instead of
+      // letting a TypeError bubble up to the UI.
+      const search = data.search;
+      if (!search) {
+        return {
+          totalCount: 0, endCursor: null,
+          hasNext: false, items: []
+        };
+      }
+      const results = search.results ?? [];
       return {
-        totalCount: data.search.totalCount,
-        endCursor: data.search.pageInfo.endCursor,
-        hasNext: data.search.pageInfo.hasNext,
-        items: data.search.results.map((r) => ({
-          itemId: r.innerItem.itemId,
-          path: r.innerItem.path,
-          fields: fieldsToMap(r.innerItem.fields.nodes)
-        }))
+        totalCount: search.totalCount ?? 0,
+        endCursor: search.pageInfo?.endCursor ?? null,
+        hasNext: search.pageInfo?.hasNext ?? false,
+        items: results
+          .map((r) => r.innerItem)
+          .filter((i): i is NonNullable<typeof i> =>
+            Boolean(i))
+          .map((i) => ({
+            itemId: i.itemId,
+            path: i.path,
+            fields: fieldsToMap(i.fields.nodes)
+          }))
       };
     },
 
