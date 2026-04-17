@@ -196,8 +196,26 @@ async function createTemplate(
     sections: typeof SETTINGS_TEMPLATE_SECTIONS;
   }
 ): Promise<string> {
+  // XMC Authoring's CreateItemTemplateInput.parent is a
+  // Guid, not a path. Resolve the parent folder to its
+  // item id first, then send the Guid in the mutation.
+  // Otherwise the API responds with
+  // "Unable to convert type from String to Guid".
+  const parentItem = await client.itemByPath(input.parent);
+  if (!parentItem) {
+    throw new Error(
+      `createItemTemplate: parent template folder ` +
+      `${input.parent} not found — run the folder step ` +
+      `first or check Marketplace-app permissions.`
+    );
+  }
   const data = await client.graphql<CreateTemplateResponse>(
-    CREATE_TEMPLATE_MUTATION, { input }
+    CREATE_TEMPLATE_MUTATION,
+    { input: {
+        name: input.name,
+        parent: parentItem.itemId,
+        sections: input.sections
+    } }
   );
   const id = data.createItemTemplate.itemTemplate.templateId;
   return `{${stripBraces(id)}}`;

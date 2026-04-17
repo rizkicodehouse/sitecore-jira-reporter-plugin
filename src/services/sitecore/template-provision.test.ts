@@ -52,7 +52,7 @@ describe("ensureFeatureTemplates", () => {
     expect(graphql).not.toHaveBeenCalled();
   });
 
-  it("creates the plugin templates folder when absent", async () => {
+  it("creates both templates under the plugin folder when missing", async () => {
     const createItem = vi.fn(async () => ({
       itemId: "folder", path: "/", fields: {}
     }));
@@ -69,19 +69,32 @@ describe("ensureFeatureTemplates", () => {
     ) as unknown as XmcClient["graphql"];
     const client = makeClient({
       itemsByPath: {
-        [FEATURE_TEMPLATES_ROOT]: {
-          itemId: "feature", path: FEATURE_TEMPLATES_ROOT,
+        [PLUGIN_TEMPLATES_FOLDER]: {
+          itemId: "plugin-folder-guid",
+          path: PLUGIN_TEMPLATES_FOLDER,
           fields: {}
         }
       },
       graphql, createItem
     });
-    await ensureFeatureTemplates({ client });
-    const rawCalls = (createItem as unknown as {
-      mock: { calls: Array<[{ name: string }]> };
+    const ids = await ensureFeatureTemplates({ client });
+    // createTemplate resolves PLUGIN_TEMPLATES_FOLDER to
+    // its itemId and passes that Guid as `parent`.
+    const rawCalls = (graphql as unknown as {
+      mock: { calls: Array<[string, { input: {
+        parent: string; name: string;
+      } }]> };
     }).mock.calls;
-    const names = rawCalls.map((call) => call[0].name);
-    expect(names).toContain("BugReporterJira");
+    expect(rawCalls).toHaveLength(2);
+    for (const [, vars] of rawCalls) {
+      expect(vars.input.parent).toBe("plugin-folder-guid");
+    }
+    const names = rawCalls.map(([, v]) => v.input.name);
+    expect(names).toContain("BugReporterJiraSettings");
+    expect(names).toContain("BugReport");
+    expect(ids.settingsTemplateId).toBe(
+      "{CCCC3333-CCCC-CCCC-CCCC-CCCCCCCCCCCC}"
+    );
   });
 
   it("creates both templates via graphql mutation when absent", async () => {
