@@ -181,6 +181,112 @@ const INTROSPECT_QUERIES: Record<string, string> = {
         }
       }
     }
+  `,
+  "SearchResultItem full shape": `
+    query {
+      __type(name: "SearchResultItem") {
+        name kind
+        fields {
+          name
+          args { name type { kind name } }
+          type { kind name ofType { kind name } }
+        }
+      }
+    }
+  `,
+  "Probe: find SJP-107 by _name (proves the index has it)": `
+    query {
+      search(query: {
+        filterStatement: {
+          criteria: [
+            { field: "_name", value: "SJP-107" }
+          ]
+        }
+        paging: { pageIndex: 0, pageSize: 5 }
+      }) {
+        totalCount
+        results { itemId path }
+      }
+    }
+  `,
+  "Probe: find BugReport items by _templatename": `
+    query {
+      search(query: {
+        filterStatement: {
+          criteria: [
+            { field: "_templatename", value: "BugReport" }
+          ]
+        }
+        paging: { pageIndex: 0, pageSize: 5 }
+      }) {
+        totalCount
+        results { itemId path }
+      }
+    }
+  `,
+  "Probe: find by _template (compact id)": `
+    query {
+      search(query: {
+        filterStatement: {
+          criteria: [
+            { field: "_template",
+              value: "0e304805fe904f7ba331c6858ee830ca" }
+          ]
+        }
+        paging: { pageIndex: 0, pageSize: 5 }
+      }) {
+        totalCount
+        results { itemId path }
+      }
+    }
+  `,
+  "Probe: find by _template (dashed id)": `
+    query {
+      search(query: {
+        filterStatement: {
+          criteria: [
+            { field: "_template",
+              value: "0e304805-fe90-4f7b-a331-c6858ee830ca" }
+          ]
+        }
+        paging: { pageIndex: 0, pageSize: 5 }
+      }) {
+        totalCount
+        results { itemId path }
+      }
+    }
+  `,
+  "Probe: find by template (no underscore)": `
+    query {
+      search(query: {
+        filterStatement: {
+          criteria: [
+            { field: "template",
+              value: "0e304805fe904f7ba331c6858ee830ca" }
+          ]
+        }
+        paging: { pageIndex: 0, pageSize: 5 }
+      }) {
+        totalCount
+        results { itemId path }
+      }
+    }
+  `,
+  "Probe: find by _path (bug reports root)": `
+    query {
+      search(query: {
+        filterStatement: {
+          criteria: [
+            { field: "_path",
+              value: "ec89f5f71dcb4fa79c2c3d7e7ec9fc25" }
+          ]
+        }
+        paging: { pageIndex: 0, pageSize: 5 }
+      }) {
+        totalCount
+        results { itemId path }
+      }
+    }
   `
 };
 
