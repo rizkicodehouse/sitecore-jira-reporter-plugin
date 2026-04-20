@@ -186,7 +186,8 @@ describe("sitecore-provision", () => {
     const bugCalls = createItem.mock.calls.filter((call) =>
       (call[0] as any).name === "Bug Reports");
     expect(bugCalls.length).toBeGreaterThan(0);
-    const bugArgs = bugCalls[0][0] as any;
+    if (bugCalls.length === 0) throw new Error("Bug Reports not created");
+    const bugArgs = bugCalls[0]![0] as any;
     expect(bugArgs.templateId).toBeDefined();
     expect(bugArgs.templateId).not.toBe(TEMPLATE_ID_FOLDER);
     const hasIsBucket = (bugArgs.fields || []).some(
