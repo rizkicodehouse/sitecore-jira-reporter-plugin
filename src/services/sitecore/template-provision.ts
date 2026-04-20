@@ -9,6 +9,7 @@
 
 import type { XmcClient } from "./xmc";
 import { stripBraces } from "./utils";
+import { TEMPLATE_FOLDER_TEMPLATE_ID } from "./templates";
 
 export const FEATURE_TEMPLATES_ROOT =
   "/sitecore/templates/Feature";
@@ -193,13 +194,34 @@ export async function ensureFeatureTemplates(
         sections: BUG_REPORT_TEMPLATE_SECTIONS
       });
 
-  const bucketableId = existingBucketable
-    ? `{${stripBraces(existingBucketable.itemId)}}`
-    : await createTemplate(client, {
-        name: "Bucketable Folder",
-        parent: PLUGIN_TEMPLATES_FOLDER,
-        sections: []
+  let bucketableId: string;
+  if (existingBucketable) {
+    bucketableId = `{${stripBraces(existingBucketable.itemId)}}`;
+  } else {
+    bucketableId = await createTemplate(client, {
+      name: "Bucketable Folder",
+      parent: PLUGIN_TEMPLATES_FOLDER,
+      sections: []
+    });
+
+    // Create __Standard Values under the newly-created template so
+    // system fields like IsBucket are provided by the template's
+    // standard values rather than set on each item. If creation
+    // fails (permission or already exists), swallow the error to
+    // keep provisioning idempotent.
+    try {
+      const templatePath = `${PLUGIN_TEMPLATES_FOLDER}/Bucketable Folder`;
+      await client.createItem({
+        name: "__Standard Values",
+        parent: templatePath,
+        templateId: TEMPLATE_FOLDER_TEMPLATE_ID,
+        language: "en",
+        fields: [{ name: "IsBucket", value: "1" }]
       });
+    } catch (e) {
+      // best-effort: ignore errors creating standard values
+    }
+  }
 
   return {
     settingsTemplateId: settingsId,
