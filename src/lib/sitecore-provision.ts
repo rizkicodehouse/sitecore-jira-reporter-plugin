@@ -128,12 +128,16 @@ export async function provisionPluginSite(
     });
   }
 
-  // 3. Ensure the Data/Bug Reports bucket using a bucketable
-  // folder template, then set IsBucket = 1 on the item to
-  // enable bucketing for that specific folder.
-  let reportsItem = existingReports;
+  // 3. Ensure the Data/Bug Reports folder using a bucketable
+  // folder template, then flip `__Is Bucket` on the newly
+  // created item. This mirrors the Configure → Bucket toggle
+  // in Content Editor. `__Is Bucket` comes from the inherited
+  // "Item Buckets" section (id {AF530C7B-8B87-458B-80CE-239D1E1B9E60});
+  // the field name carries the `__` prefix and a space, not
+  // `IsBucket` — XMC's Authoring API rejects the unprefixed
+  // form with "Cannot find a field with the name IsBucket".
   if (!existingReports) {
-    reportsItem = await client.createItem({
+    const reportsItem = await client.createItem({
       name: "Bug Reports",
       parent: dataRoot,
       templateId: templateIds.bucketableFolderTemplateId
@@ -142,11 +146,10 @@ export async function provisionPluginSite(
       fields: [ICON_FIELD]
     });
 
-    // Set IsBucket flag on the newly-created folder to enable bucketing
     await client.updateItem({
       itemId: reportsItem.itemId,
       language,
-      fields: [{ name: "IsBucket", value: "1" }]
+      fields: [{ name: "__Is Bucket", value: "1" }]
     });
   }
 

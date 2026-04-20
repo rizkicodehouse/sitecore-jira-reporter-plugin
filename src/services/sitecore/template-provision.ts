@@ -117,6 +117,18 @@ const BUG_REPORT_TEMPLATE_SECTIONS = [
   }
 ];
 
+// The Bucketable Folder template defines no custom sections.
+// Every Sitecore item inherits the stock "Item Buckets"
+// section (path: /sitecore/templates/System/Templates/Sections/Item Buckets,
+// id: {AF530C7B-8B87-458B-80CE-239D1E1B9E60}) which provides
+// `__Is Bucket`, `__Bucketable`, etc. Defining our own
+// IsBucket field conflicts with the inherited one and makes
+// the Authoring API return "Cannot find a field with the name
+// IsBucket" on updateItem. We rely on inheritance instead and
+// flip `__Is Bucket` on the Bug Reports folder after creation.
+const BUCKETABLE_FOLDER_TEMPLATE_SECTIONS: typeof SETTINGS_TEMPLATE_SECTIONS =
+  [];
+
 export type TemplateProvisionArgs = {
   client: XmcClient;
 };
@@ -201,7 +213,7 @@ export async function ensureFeatureTemplates(
     bucketableId = await createTemplate(client, {
       name: "Bucketable Folder",
       parent: PLUGIN_TEMPLATES_FOLDER,
-      sections: []
+      sections: BUCKETABLE_FOLDER_TEMPLATE_SECTIONS
     });
   }
 

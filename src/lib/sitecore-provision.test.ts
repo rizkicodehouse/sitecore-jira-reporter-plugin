@@ -154,7 +154,7 @@ describe("sitecore-provision", () => {
     expect(createItem).not.toHaveBeenCalled();
   });
 
-  it("creates Bug Reports folder and sets IsBucket flag on it", async () => {
+  it("creates Bug Reports with bucketable template and sets `__Is Bucket` via updateItem", async () => {
     const createItem = vi.fn(async (args: {
       name: string;
     }) => ({
@@ -188,13 +188,19 @@ describe("sitecore-provision", () => {
     expect(bugArgs.templateId).toBeDefined();
     expect(bugArgs.templateId).not.toBe(TEMPLATE_ID_FOLDER);
 
-    // Verify updateItem was called with IsBucket field set to "1"
+    // Verify updateItem was called to flip `__Is Bucket` = "1"
+    // on the newly created Bug Reports item. The field name
+    // must be `__Is Bucket` (prefix + space) because XMC's
+    // Authoring API does not expose `IsBucket` as an alias —
+    // it rejects the unprefixed form with
+    // "Cannot find a field with the name IsBucket".
     expect(updateItem).toHaveBeenCalled();
-    const updateCallsWithIsBucket = updateItem.mock.calls.filter((call: any[]) => {
+    const isBucketCalls = updateItem.mock.calls.filter((call: any[]) => {
       const fields = (call[0]?.fields as any[]) || [];
-      return fields.some((f: any) => f.name === "IsBucket" && f.value === "1");
+      return fields.some((f: any) =>
+        f.name === "__Is Bucket" && f.value === "1");
     });
-    expect(updateCallsWithIsBucket.length).toBeGreaterThan(0);
+    expect(isBucketCalls.length).toBeGreaterThan(0);
   });
 
   it("throws when the site root itself is absent", async () => {
