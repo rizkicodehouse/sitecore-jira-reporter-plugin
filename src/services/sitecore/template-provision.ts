@@ -117,6 +117,15 @@ const BUG_REPORT_TEMPLATE_SECTIONS = [
   }
 ];
 
+const BUCKETABLE_FOLDER_TEMPLATE_SECTIONS = [
+  {
+    name: "Bucket Settings",
+    fields: [
+      { name: "IsBucket", type: "Checkbox" }
+    ]
+  }
+];
+
 export type TemplateProvisionArgs = {
   client: XmcClient;
 };
@@ -201,26 +210,8 @@ export async function ensureFeatureTemplates(
     bucketableId = await createTemplate(client, {
       name: "Bucketable Folder",
       parent: PLUGIN_TEMPLATES_FOLDER,
-      sections: []
+      sections: BUCKETABLE_FOLDER_TEMPLATE_SECTIONS
     });
-
-    // Create __Standard Values under the newly-created template so
-    // system fields like IsBucket are provided by the template's
-    // standard values rather than set on each item. If creation
-    // fails (permission or already exists), swallow the error to
-    // keep provisioning idempotent.
-    try {
-      const templatePath = `${PLUGIN_TEMPLATES_FOLDER}/Bucketable Folder`;
-      await client.createItem({
-        name: "__Standard Values",
-        parent: templatePath,
-        templateId: TEMPLATE_ID_FOLDER,
-        language: "en",
-        fields: [{ name: "IsBucket", value: "1" }]
-      });
-    } catch (e) {
-      // best-effort: ignore errors creating standard values
-    }
   }
 
   return {
