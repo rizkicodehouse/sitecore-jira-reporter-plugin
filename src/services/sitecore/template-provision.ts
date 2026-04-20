@@ -117,15 +117,6 @@ const BUG_REPORT_TEMPLATE_SECTIONS = [
   }
 ];
 
-const BUCKETABLE_FOLDER_TEMPLATE_SECTIONS = [
-  {
-    name: "Bucket Settings",
-    fields: [
-      { name: "IsBucket", type: "Checkbox" }
-    ]
-  }
-];
-
 export type TemplateProvisionArgs = {
   client: XmcClient;
 };
@@ -210,7 +201,7 @@ export async function ensureFeatureTemplates(
     bucketableId = await createTemplate(client, {
       name: "Bucketable Folder",
       parent: PLUGIN_TEMPLATES_FOLDER,
-      sections: BUCKETABLE_FOLDER_TEMPLATE_SECTIONS
+      sections: []
     });
   }
 

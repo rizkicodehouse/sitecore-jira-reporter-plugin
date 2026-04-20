@@ -154,7 +154,7 @@ describe("sitecore-provision", () => {
     expect(createItem).not.toHaveBeenCalled();
   });
 
-  it("creates Bug Reports as a bucketable-folder template without setting IsBucket via GraphQL", async () => {
+  it("creates Bug Reports folder and sets IsBucket flag on it", async () => {
     const createItem = vi.fn(async (args: {
       name: string;
     }) => ({
@@ -177,22 +177,24 @@ describe("sitecore-provision", () => {
       client: c, tenant: "T", site: "S"
     });
 
-    // Ensure we did not call updateItem to set IsBucket
-    expect(updateItem).not.toHaveBeenCalled();
-
-    // Find the createItem call for Bug Reports and ensure
-    // it used a bucketable template and did not include
-    // an IsBucket field in the fields array.
+    // Find the createItem call for Bug Reports
     const bugCalls = createItem.mock.calls.filter((call) =>
       (call[0] as any).name === "Bug Reports");
     expect(bugCalls.length).toBeGreaterThan(0);
     if (bugCalls.length === 0) throw new Error("Bug Reports not created");
+
+    // Verify Bug Reports was created with bucketable template
     const bugArgs = bugCalls[0]![0] as any;
     expect(bugArgs.templateId).toBeDefined();
     expect(bugArgs.templateId).not.toBe(TEMPLATE_ID_FOLDER);
-    const hasIsBucket = (bugArgs.fields || []).some(
-      (f: any) => f.name === "IsBucket");
-    expect(hasIsBucket).toBe(false);
+
+    // Verify updateItem was called with IsBucket field set to "1"
+    expect(updateItem).toHaveBeenCalled();
+    const updateCallsWithIsBucket = updateItem.mock.calls.filter((call: any[]) => {
+      const fields = (call[0]?.fields as any[]) || [];
+      return fields.some((f: any) => f.name === "IsBucket" && f.value === "1");
+    });
+    expect(updateCallsWithIsBucket.length).toBeGreaterThan(0);
   });
 
   it("throws when the site root itself is absent", async () => {

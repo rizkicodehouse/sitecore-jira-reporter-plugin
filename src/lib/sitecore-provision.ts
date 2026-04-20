@@ -129,19 +129,26 @@ export async function provisionPluginSite(
   }
 
   // 3. Ensure the Data/Bug Reports bucket using a bucketable
-  // folder template. Do not attempt to set system fields
-  // like IsBucket via GraphQL; the template's standard
-  // values enable bucketing instead.
-  const reportsItem = existingReports
-    ? existingReports
-    : await client.createItem({
-        name: "Bug Reports",
-        parent: dataRoot,
-        templateId: templateIds.bucketableFolderTemplateId
-          ?? TEMPLATE_ID_BUCKETABLE_FOLDER,
-        language,
-        fields: [ICON_FIELD]
-      });
+  // folder template, then set IsBucket = 1 on the item to
+  // enable bucketing for that specific folder.
+  let reportsItem = existingReports;
+  if (!existingReports) {
+    reportsItem = await client.createItem({
+      name: "Bug Reports",
+      parent: dataRoot,
+      templateId: templateIds.bucketableFolderTemplateId
+        ?? TEMPLATE_ID_BUCKETABLE_FOLDER,
+      language,
+      fields: [ICON_FIELD]
+    });
+
+    // Set IsBucket flag on the newly-created folder to enable bucketing
+    await client.updateItem({
+      itemId: reportsItem.itemId,
+      language,
+      fields: [{ name: "IsBucket", value: "1" }]
+    });
+  }
 
   return templateIds;
 }
