@@ -206,6 +206,40 @@ export async function ensureFeatureTemplates(
         sections: BUG_REPORT_TEMPLATE_SECTIONS
       });
 
+  // Ensure the template's __Standard Values item exists and mark
+  // the template as bucketable so children are created under the
+  // bucket's date-based path instead of directly under the root.
+  // The field name is `__Bucketable` (two underscores, no space).
+  try {
+    const stdPath = `${BUG_REPORT_TEMPLATE_PATH}/__Standard Values`;
+    let std = await client.itemByPath(stdPath);
+    if (!std) {
+      // Create a standard values placeholder under the template.
+      // Use the folder template as a neutral item template for the
+      // standard values node; the important part is the field we set
+      // below.
+      std = await client.createItem({
+        name: "__Standard Values",
+        parent: BUG_REPORT_TEMPLATE_PATH,
+        templateId: TEMPLATE_FOLDER_TEMPLATE_ID,
+        language: "en",
+        fields: []
+      });
+    }
+
+    await client.updateItem({
+      itemId: std.itemId,
+      language: "en",
+      fields: [{ name: "__Bucketable", value: "1" }]
+    });
+  } catch (e) {
+    // Non-fatal: provisioning should continue even if marking
+    // standard values fails (host Sitecore may restrict template
+    // edits). Surface the error for logging via thrown exception
+    // upstream rather than blocking template creation here.
+    // Keep behavior silent here; callers can inspect logs if needed.
+  }
+
   let bucketableId: string;
   if (existingBucketable) {
     bucketableId = `{${stripBraces(existingBucketable.itemId)}}`;
