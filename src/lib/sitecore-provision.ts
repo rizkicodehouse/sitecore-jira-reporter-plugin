@@ -125,7 +125,7 @@ export async function provisionPluginSite(
     });
   }
 
-  // 3. Ensure the Data/Bug Reports bucket. Set __Bucket=1
+  // 3. Ensure the Data/Bug Reports bucket. Set IsBucket=1
   // at creation AND reapply on every provision run so
   // existing folders (from earlier installs that didn't
   // flag them as buckets) get upgraded without requiring
@@ -139,14 +139,14 @@ export async function provisionPluginSite(
         language,
         fields: [
           ICON_FIELD,
-          { name: "__Bucket", value: "1" }
+          { name: "IsBucket", value: "1" }
         ]
       });
   try {
     await client.updateItem({
       itemId: reportsItem.itemId,
       language,
-      fields: [{ name: "__Bucket", value: "1" }]
+      fields: [{ name: "IsBucket", value: "1" }]
     });
   } catch (e) {
     // Surface instead of swallowing so the next silent
@@ -156,7 +156,7 @@ export async function provisionPluginSite(
     console.warn(
       "[jira-reporter] failed to flag Bug Reports as a " +
       "bucket. New reports will accumulate as direct " +
-      "children until __Bucket=1 is set in Content Editor.",
+      "children until IsBucket=1 is set in Content Editor.",
       e
     );
   }
