@@ -216,21 +216,26 @@ export async function ensureFeatureTemplates(
     if (!std) {
       // Create a standard values placeholder under the template.
       // Use the folder template as a neutral item template for the
-      // standard values node; the important part is the field we set
-      // below.
+      // standard values node; set the icon so children inherit it.
       std = await client.createItem({
         name: "__Standard Values",
         parent: BUG_REPORT_TEMPLATE_PATH,
         templateId: TEMPLATE_FOLDER_TEMPLATE_ID,
         language: "en",
-        fields: []
+        fields: [{ name: "__Icon", value: PLUGIN_BUG_ICON }]
       });
     }
 
+    // Ensure the standard values item marks the template as bucketable
+    // and exposes the same icon as the template itself so created
+    // items inherit the plugin's bug icon in Content Editor.
     await client.updateItem({
       itemId: std.itemId,
       language: "en",
-      fields: [{ name: "__Bucketable", value: "1" }]
+      fields: [
+        { name: "__Bucketable", value: "1" },
+        { name: "__Icon", value: PLUGIN_BUG_ICON }
+      ]
     });
   } catch (e) {
     // Non-fatal: provisioning should continue even if marking
