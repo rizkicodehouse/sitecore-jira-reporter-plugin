@@ -9,7 +9,7 @@
 
 import type { XmcClient } from "./xmc";
 import { stripBraces } from "./utils";
-import { TEMPLATE_FOLDER_TEMPLATE_ID } from "./templates";
+import { TEMPLATE_ID_FOLDER } from "./templates";
 
 export const FEATURE_TEMPLATES_ROOT =
   "/sitecore/templates/Feature";
@@ -214,7 +214,7 @@ export async function ensureFeatureTemplates(
       await client.createItem({
         name: "__Standard Values",
         parent: templatePath,
-        templateId: TEMPLATE_FOLDER_TEMPLATE_ID,
+        templateId: TEMPLATE_ID_FOLDER,
         language: "en",
         fields: [{ name: "IsBucket", value: "1" }]
       });
