@@ -3,11 +3,13 @@ import {
   provisionPluginSite
 } from "./sitecore-provision";
 import type { XmcClient } from "@/services/sitecore/xmc";
+import { TEMPLATE_ID_FOLDER } from "@/services/sitecore/templates";
 import {
   SETTINGS_TEMPLATE_PATH,
   BUG_REPORT_TEMPLATE_PATH,
   PLUGIN_TEMPLATES_FOLDER,
-  FEATURE_TEMPLATES_ROOT
+  FEATURE_TEMPLATES_ROOT,
+  BUCKETABLE_FOLDER_TEMPLATE_PATH
 } from "@/services/sitecore/template-provision";
 
 // Stable stub for the template tree so ensureFeatureTemplates
@@ -28,6 +30,10 @@ const TEMPLATE_STUBS: Record<string, unknown> = {
   [BUG_REPORT_TEMPLATE_PATH]: {
     itemId: "BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBBBB",
     path: BUG_REPORT_TEMPLATE_PATH, fields: {}
+  },
+  [BUCKETABLE_FOLDER_TEMPLATE_PATH]: {
+    itemId: "CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCCCC",
+    path: BUCKETABLE_FOLDER_TEMPLATE_PATH, fields: {}
   }
 };
 
@@ -148,7 +154,7 @@ describe("sitecore-provision", () => {
     expect(createItem).not.toHaveBeenCalled();
   });
 
-  it("flips the __Bucket flag after creating Bug Reports", async () => {
+  it("creates Bug Reports as a bucketable-folder template without setting IsBucket via GraphQL", async () => {
     const createItem = vi.fn(async (args: {
       name: string;
     }) => ({
@@ -170,15 +176,22 @@ describe("sitecore-provision", () => {
     await provisionPluginSite({
       client: c, tenant: "T", site: "S"
     });
-    type UpdateFirstArg = {
-      fields: Array<{ name: string }>;
-    };
-    const calls = (updateItem.mock as unknown as {
-      calls: Array<[UpdateFirstArg]>;
-    }).calls;
-    const bucketCall = calls.find((call) =>
-      call[0].fields.some((f) => f.name === "__Bucket"));
-    expect(bucketCall).toBeDefined();
+
+    // Ensure we did not call updateItem to set IsBucket
+    expect(updateItem).not.toHaveBeenCalled();
+
+    // Find the createItem call for Bug Reports and ensure
+    // it used a bucketable template and did not include
+    // an IsBucket field in the fields array.
+    const bugCalls = createItem.mock.calls.filter((call) =>
+      (call[0] as any).name === "Bug Reports");
+    expect(bugCalls.length).toBeGreaterThan(0);
+    const bugArgs = bugCalls[0][0] as any;
+    expect(bugArgs.templateId).toBeDefined();
+    expect(bugArgs.templateId).not.toBe(TEMPLATE_ID_FOLDER);
+    const hasIsBucket = (bugArgs.fields || []).some(
+      (f: any) => f.name === "IsBucket");
+    expect(hasIsBucket).toBe(false);
   });
 
   it("throws when the site root itself is absent", async () => {

@@ -2,6 +2,7 @@ import type { XmcClient } from "@/services/sitecore/xmc";
 import {
   TEMPLATE_ID_FOLDER,
   TEMPLATE_ID_BUG_REPORTER_SETTINGS,
+  TEMPLATE_ID_BUCKETABLE_FOLDER,
   settingsFolderPath, settingsConfigPath,
   bugReportsRootPath
 } from "@/services/sitecore/templates";
@@ -45,7 +46,9 @@ export async function provisionPluginSite(
     : {
         settingsTemplateId: TEMPLATE_ID_BUG_REPORTER_SETTINGS,
         bugReportTemplateId:
-          TEMPLATE_ID_BUG_REPORTER_SETTINGS // fallback only
+          TEMPLATE_ID_BUG_REPORTER_SETTINGS, // fallback only
+        bucketableFolderTemplateId:
+          TEMPLATE_ID_BUCKETABLE_FOLDER
       };
 
   const siteRoot =
@@ -125,41 +128,20 @@ export async function provisionPluginSite(
     });
   }
 
-  // 3. Ensure the Data/Bug Reports bucket. Set IsBucket=1
-  // at creation AND reapply on every provision run so
-  // existing folders (from earlier installs that didn't
-  // flag them as buckets) get upgraded without requiring
-  // a teardown.
+  // 3. Ensure the Data/Bug Reports bucket using a bucketable
+  // folder template. Do not attempt to set system fields
+  // like IsBucket via GraphQL; the template's standard
+  // values enable bucketing instead.
   const reportsItem = existingReports
     ? existingReports
     : await client.createItem({
         name: "Bug Reports",
         parent: dataRoot,
-        templateId: TEMPLATE_ID_FOLDER,
+        templateId: templateIds.bucketableFolderTemplateId
+          ?? TEMPLATE_ID_BUCKETABLE_FOLDER,
         language,
-        fields: [
-          ICON_FIELD,
-          { name: "IsBucket", value: "1" }
-        ]
+        fields: [ICON_FIELD]
       });
-  try {
-    await client.updateItem({
-      itemId: reportsItem.itemId,
-      language,
-      fields: [{ name: "IsBucket", value: "1" }]
-    });
-  } catch (e) {
-    // Surface instead of swallowing so the next silent
-    // regression (e.g., insufficient role permission to
-    // set system fields) shows up in devtools rather than
-    // leaving bug reports stacked as flat children.
-    console.warn(
-      "[jira-reporter] failed to flag Bug Reports as a " +
-      "bucket. New reports will accumulate as direct " +
-      "children until IsBucket=1 is set in Content Editor.",
-      e
-    );
-  }
 
   return templateIds;
 }

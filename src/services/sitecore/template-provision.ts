@@ -22,6 +22,9 @@ export const SETTINGS_TEMPLATE_PATH =
 export const BUG_REPORT_TEMPLATE_PATH =
   `${PLUGIN_TEMPLATES_FOLDER}/BugReport`;
 
+export const BUCKETABLE_FOLDER_TEMPLATE_PATH =
+  `${PLUGIN_TEMPLATES_FOLDER}/Bucketable Folder`;
+
 export const TEMPLATE_FOLDER_TEMPLATE_ID =
   "{0437FEE2-44C9-46A6-ABE9-28858D9FEE8C}";
 
@@ -35,6 +38,7 @@ export const PLUGIN_BUG_ICON = "Office/32x32/bug.png";
 export type ResolvedTemplateIds = {
   settingsTemplateId: string;
   bugReportTemplateId: string;
+  bucketableFolderTemplateId: string;
 };
 
 const CREATE_TEMPLATE_MUTATION = `
@@ -123,15 +127,17 @@ export async function ensureFeatureTemplates(
 
   // 1. Short-circuit: if both templates already exist, read
   // their ids out of itemByPath and return without mutating.
-  const [existingSettings, existingBugReport] =
+  const [existingSettings, existingBugReport, existingBucketable] =
     await Promise.all([
       client.itemByPath(SETTINGS_TEMPLATE_PATH),
-      client.itemByPath(BUG_REPORT_TEMPLATE_PATH)
+      client.itemByPath(BUG_REPORT_TEMPLATE_PATH),
+      client.itemByPath(BUCKETABLE_FOLDER_TEMPLATE_PATH)
     ]);
-  if (existingSettings && existingBugReport) {
+  if (existingSettings && existingBugReport && existingBucketable) {
     return {
       settingsTemplateId: `{${stripBraces(existingSettings.itemId)}}`,
-      bugReportTemplateId: `{${stripBraces(existingBugReport.itemId)}}`
+      bugReportTemplateId: `{${stripBraces(existingBugReport.itemId)}}`,
+      bucketableFolderTemplateId: `{${stripBraces(existingBucketable.itemId)}}`
     };
   }
 
@@ -187,9 +193,18 @@ export async function ensureFeatureTemplates(
         sections: BUG_REPORT_TEMPLATE_SECTIONS
       });
 
+  const bucketableId = existingBucketable
+    ? `{${stripBraces(existingBucketable.itemId)}}`
+    : await createTemplate(client, {
+        name: "Bucketable Folder",
+        parent: PLUGIN_TEMPLATES_FOLDER,
+        sections: []
+      });
+
   return {
     settingsTemplateId: settingsId,
-    bugReportTemplateId: bugReportId
+    bugReportTemplateId: bugReportId,
+    bucketableFolderTemplateId: bucketableId
   };
 }
 

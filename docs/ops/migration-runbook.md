@@ -50,7 +50,7 @@ and site-level folders (`Settings/Bug Reporter for Jira`,
    - `/sitecore/content/{tenant}/{site}/Settings/Bug Reporter for Jira/Config`
      exists and is based on the settings template.
    - `/sitecore/content/{tenant}/{site}/Data/Bug Reports` exists
-     with the `__Bucket` flag set.
+     with the `IsBucket` flag set.
 4. Configure settings through the form (Jira URL, service
    email, API token, project key). Confirm the `API Token
    (Encrypted)` field on the Config item holds ciphertext, not

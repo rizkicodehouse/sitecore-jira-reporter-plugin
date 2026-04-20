@@ -4,7 +4,8 @@ import {
   SETTINGS_TEMPLATE_PATH,
   BUG_REPORT_TEMPLATE_PATH,
   PLUGIN_TEMPLATES_FOLDER,
-  FEATURE_TEMPLATES_ROOT
+  FEATURE_TEMPLATES_ROOT,
+  BUCKETABLE_FOLDER_TEMPLATE_PATH
 } from "./template-provision";
 import type { XmcClient, SitecoreItem } from "./xmc";
 
@@ -38,6 +39,10 @@ describe("ensureFeatureTemplates", () => {
         [BUG_REPORT_TEMPLATE_PATH]: {
           itemId: "BBBB2222-BBBB-BBBB-BBBB-BBBBBBBBBBBB",
           path: BUG_REPORT_TEMPLATE_PATH, fields: {}
+        },
+        [BUCKETABLE_FOLDER_TEMPLATE_PATH]: {
+          itemId: "CCCC3333-CCCC-CCCC-CCCC-CCCCCCCCCCCC",
+          path: BUCKETABLE_FOLDER_TEMPLATE_PATH, fields: {}
         }
       },
       graphql
@@ -48,6 +53,9 @@ describe("ensureFeatureTemplates", () => {
     );
     expect(ids.bugReportTemplateId).toBe(
       "{BBBB2222-BBBB-BBBB-BBBB-BBBBBBBBBBBB}"
+    );
+    expect(ids.bucketableFolderTemplateId).toBe(
+      "{CCCC3333-CCCC-CCCC-CCCC-CCCCCCCCCCCC}"
     );
     expect(graphql).not.toHaveBeenCalled();
   });
@@ -85,14 +93,18 @@ describe("ensureFeatureTemplates", () => {
         parent: string; name: string;
       } }]> };
     }).mock.calls;
-    expect(rawCalls).toHaveLength(2);
+    expect(rawCalls).toHaveLength(3);
     for (const [, vars] of rawCalls) {
       expect(vars.input.parent).toBe("plugin-folder-guid");
     }
     const names = rawCalls.map(([, v]) => v.input.name);
     expect(names).toContain("BugReporterJiraSettings");
     expect(names).toContain("BugReport");
+    expect(names).toContain("Bucketable Folder");
     expect(ids.settingsTemplateId).toBe(
+      "{CCCC3333-CCCC-CCCC-CCCC-CCCCCCCCCCCC}"
+    );
+    expect(ids.bucketableFolderTemplateId).toBe(
       "{CCCC3333-CCCC-CCCC-CCCC-CCCCCCCCCCCC}"
     );
   });
@@ -127,11 +139,14 @@ describe("ensureFeatureTemplates", () => {
     });
     const ids = await ensureFeatureTemplates({ client });
     expect(graphql as unknown as ReturnType<typeof vi.fn>)
-      .toHaveBeenCalledTimes(2);
+      .toHaveBeenCalledTimes(3);
     expect(ids.settingsTemplateId).toBe(
       "{DDDD4444-DDDD-DDDD-DDDD-DDDDDDDDDDDD}"
     );
     expect(ids.bugReportTemplateId).toBe(
+      "{DDDD4444-DDDD-DDDD-DDDD-DDDDDDDDDDDD}"
+    );
+    expect(ids.bucketableFolderTemplateId).toBe(
       "{DDDD4444-DDDD-DDDD-DDDD-DDDDDDDDDDDD}"
     );
   });

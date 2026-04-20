@@ -15,6 +15,10 @@ export const TEMPLATE_ID_BUG_REPORT =
   process.env.SITECORE_TEMPLATE_BUG_REPORT
     ?? "{2C5E6F1A-8DB4-49D8-9C74-7B3F4A7F11F0}";
 
+export const TEMPLATE_ID_BUCKETABLE_FOLDER =
+  process.env.SITECORE_TEMPLATE_BUCKETABLE_FOLDER
+    ?? "{33333333-3333-3333-3333-333333333333}";
+
 export function settingsFolderPath(
   tenant: string, site: string
 ): string {
