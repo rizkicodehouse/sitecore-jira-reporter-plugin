@@ -10,9 +10,10 @@ export type ReportBugButtonProps = {
 };
 
 export const REPORT_BUG_BUTTON_CLASS =
-  "bg-gradient-to-r from-primary-500 via-pink-500 to-cyan-500 " +
-  "text-white shadow-[0_10px_30px_-12px_rgba(110,63,255,0.5)] " +
-  "hover:opacity-95 focus-visible:ring-primary/50";
+  "bg-primary text-white hover:bg-primary-600 " +
+  "active:bg-primary-700 " +
+  "shadow-[0_10px_30px_-12px_rgba(110,63,255,0.5)] " +
+  "focus-visible:ring-primary/50";
 
 export const ReportBugButton: FC<ReportBugButtonProps> = (
   { disabled, onClick }

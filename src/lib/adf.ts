@@ -41,6 +41,22 @@ const MAX_FIELD = 500;
 const clip = (s: string) =>
   s.length > MAX_FIELD ? s.slice(0, MAX_FIELD) : s;
 
+// Auth0 and the Sitecore SDK frequently surface `name` as the
+// user's email address when no display name is configured,
+// which produced `email — email` in the Jira reporter line.
+// Prefer a real display name and fall back to just the email.
+function formatReporter(
+  r: { name: string; email: string }
+): string {
+  const name = (r.name ?? "").trim();
+  const email = (r.email ?? "").trim();
+  if (!email) return name || "(unavailable)";
+  if (!name || name.toLowerCase() === email.toLowerCase()) {
+    return email;
+  }
+  return `${name} — ${email}`;
+}
+
 export type DescriptionInput = {
   description: string;
   reporter: { name: string; email: string } | null;
@@ -76,7 +92,7 @@ export function buildDescription(
   sections.push(h2("Reporter"));
   sections.push(para(
     input.reporter
-      ? `${input.reporter.name} — ${input.reporter.email}`
+      ? formatReporter(input.reporter)
       : "(unavailable)"
   ));
   sections.push(h2("Page"));

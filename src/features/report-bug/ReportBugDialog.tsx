@@ -227,7 +227,9 @@ export const ReportBugDialog: FC<ReportBugDialogProps> = (
       )}
       {context.renderings.length > 0 && (
         <div className="space-y-1.5">
-          <Label htmlFor="rendering">Component</Label>
+          <Label htmlFor="rendering">
+            Affected component on this page
+          </Label>
           <select id="rendering"
             value={pickedInstanceId}
             onChange={(e) =>
@@ -249,13 +251,17 @@ export const ReportBugDialog: FC<ReportBugDialogProps> = (
         </div>
       )}
       <div className="space-y-1.5">
-        <Label htmlFor="summary">Summary</Label>
+        <Label htmlFor="summary">Bug summary</Label>
         <Input id="summary" value={summary}
+          placeholder="What's broken, in one sentence?"
           onChange={(e) => setSummary(e.target.value)} />
       </div>
       <div className="space-y-1.5">
-        <Label htmlFor="desc">Description</Label>
+        <Label htmlFor="desc">
+          Description — what happened and how to reproduce
+        </Label>
         <Textarea id="desc" value={desc}
+          placeholder="Steps to reproduce, expected result, actual result"
           onChange={(e) => setDesc(e.target.value)} rows={5} />
       </div>
 
@@ -304,7 +310,7 @@ export const ReportBugDialog: FC<ReportBugDialogProps> = (
       )}
       <details className="text-sm">
         <summary className="cursor-pointer">
-          Auto-captured context
+          Technical additional information
         </summary>
         <pre className="text-xs bg-muted p-2 rounded
                         overflow-auto max-h-40">

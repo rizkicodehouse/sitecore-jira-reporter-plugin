@@ -436,6 +436,7 @@ export const PagesPanel: FC<PagesPanelProps> = (
         tenantId,
         authHeaders: buildAuthHeaders(identity)
       });
+      setProvisioned(true);
       setJiraCreds(
         stored.jiraBaseUrl && stored.jiraServiceEmail
           && stored.jiraApiTokenEnc
@@ -452,7 +453,9 @@ export const PagesPanel: FC<PagesPanelProps> = (
         defaultLabels: stored.defaultLabels,
         defaultBoardId: stored.defaultBoardId
       });
-    } catch {
+    } catch (e) {
+      const tag = (e as { category?: string })?.category;
+      if (tag === "not-provisioned") setProvisioned(false);
       setJiraCreds(null);
       setJiraSettings(null);
     }
@@ -461,6 +464,20 @@ export const PagesPanel: FC<PagesPanelProps> = (
 
   useEffect(() => { void primeJiraCache(); },
     [primeJiraCache]);
+
+  // Setup is "complete" once the site has been provisioned
+  // AND the admin has filled in Jira creds + project key.
+  // While we don't yet know (null), treat as complete so the
+  // panel doesn't flicker into a guided state during normal
+  // use (and so tests without the XMC client still render the
+  // Report Bug button).
+  const setupComplete =
+    provisioned !== false &&
+    Boolean(jiraCreds) &&
+    Boolean(jiraSettings?.projectKey);
+  const needsSetup =
+    xmcClient !== null && siteScope !== null &&
+    !setupComplete;
 
   if (sessionState === "needs-login") {
     return (
@@ -472,9 +489,7 @@ export const PagesPanel: FC<PagesPanelProps> = (
           </span>
           <h2 className="text-base font-semibold tracking-tight text-gray-900">
             Sign in to{" "}
-            <span className="bg-gradient-to-r from-primary-600 via-pink-500 to-cyan-500 bg-clip-text text-transparent">
-              Bug Reporter
-            </span>
+            <span className="text-primary">Bug Reporter</span>
           </h2>
           <p className="text-xs leading-relaxed text-gray-600">
             Opens your Sitecore login in a new tab. This
@@ -486,7 +501,7 @@ export const PagesPanel: FC<PagesPanelProps> = (
             target="_blank"
             rel="noopener noreferrer"
             onClick={() => setAuthPolling(true)}
-            className="inline-flex items-center justify-center rounded-lg bg-gradient-to-r from-primary-500 via-pink-500 to-cyan-500 px-4 py-2 text-sm font-semibold text-white shadow-[0_10px_30px_-12px_rgba(110,63,255,0.5)] transition hover:opacity-95"
+            className="inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white shadow-[0_10px_30px_-12px_rgba(110,63,255,0.5)] transition hover:bg-primary-600 active:bg-primary-700"
           >
             Sign in with Sitecore
           </a>
@@ -525,25 +540,65 @@ export const PagesPanel: FC<PagesPanelProps> = (
             <span className="h-1.5 w-1.5 rounded-full bg-primary-500" />
             Bug reporter
           </span>
-          <SettingsGear
-            onClick={() => setSettingsOpen((x) => !x)} />
+          <div className="relative">
+            {needsSetup && !settingsOpen && (
+              <>
+                <span
+                  aria-hidden
+                  className="pointer-events-none absolute inset-0 animate-ping rounded-full ring-2 ring-primary/60"
+                />
+                <span
+                  aria-hidden
+                  className="pointer-events-none absolute inset-0 rounded-full ring-2 ring-primary/40"
+                />
+              </>
+            )}
+            <SettingsGear
+              onClick={() => setSettingsOpen((x) => !x)} />
+          </div>
         </div>
         <h2 className="text-base font-semibold tracking-tight text-gray-900">
-          Report a{" "}
-          <span className="bg-gradient-to-r from-primary-600 via-pink-500 to-cyan-500 bg-clip-text text-transparent">
-            Bug
-          </span>
+          Report a <span className="text-primary">Bug</span>
         </h2>
-        <ReportBugButton
-          disabled={!hasSelection}
-          onClick={() => setOpen(true)} />
-        {!hasSelection && (
-          <div className="flex items-start gap-3 rounded-xl border border-primary-100/80 bg-gradient-to-br from-primary-50/60 via-white to-cyan-50/60 p-3">
-            <div className="h-6 w-6 shrink-0 rounded-full bg-gradient-to-br from-primary-300 via-pink-300 to-cyan-300 shadow-inner" />
+        {needsSetup && !settingsOpen && (
+          <div
+            role="status"
+            aria-live="polite"
+            className="flex items-start gap-3 rounded-xl border border-primary-200 bg-primary-50/60 p-3"
+          >
+            <span
+              aria-hidden
+              className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary text-[11px] font-semibold text-white"
+            >
+              1
+            </span>
+            <div className="flex flex-col gap-1">
+              <p className="text-xs font-semibold text-primary-800">
+                Finish setup before reporting a bug
+              </p>
+              <p className="text-xs leading-relaxed text-gray-700">
+                {provisioned === false
+                  ? "Install the plugin on this site, then "
+                    + "configure your Jira connection."
+                  : "Open settings to configure your Jira "
+                    + "connection and target project. "
+                    + "The Report Bug button appears once "
+                    + "setup is complete."}
+              </p>
+            </div>
+          </div>
+        )}
+        {!needsSetup && (
+          <ReportBugButton
+            disabled={!hasSelection}
+            onClick={() => setOpen(true)} />
+        )}
+        {!hasSelection && setupComplete && (
+          <div className="flex items-start gap-3 rounded-xl border border-primary-100/80 bg-primary-50/40 p-3">
+            <div className="h-6 w-6 shrink-0 rounded-full bg-primary-200 shadow-inner" />
             <p className="text-xs leading-relaxed text-gray-600">
               Open a page in Sitecore Pages to report a bug
-              on it. Use the gear icon to configure the
-              target Jira project.
+              on it.
             </p>
           </div>
         )}
@@ -613,7 +668,7 @@ const PanelShell: FC<{
       <div className="absolute top-1/3 right-1/4 h-40 w-40 rounded-full bg-pink-200/30 blur-3xl" />
     </div>
     <section className="overflow-hidden rounded-2xl border border-primary-100 bg-white/80 shadow-[0_20px_50px_-25px_rgba(110,63,255,0.35)] backdrop-blur-md">
-      <div className="h-1 bg-gradient-to-r from-primary-500 via-pink-500 to-cyan-500" />
+      <div className="h-1 bg-primary" />
       {children}
     </section>
   </div>

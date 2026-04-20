@@ -101,12 +101,14 @@ export const SettingsView: FC<SettingsViewProps> = ({ load, save }) => {
         </Alert>
       )}
 
-      <h3 className="text-sm font-semibold mt-3">Jira connection</h3>
+      <h3 className="text-sm font-semibold mt-3">
+        Connect to your Jira workspace
+      </h3>
       <Separator className="my-1" />
 
       <div className="space-y-1.5">
         <Label htmlFor="jiraBaseUrl">
-          Jira base URL <span className="text-destructive">*</span>
+          Jira workspace URL <span className="text-destructive">*</span>
         </Label>
         <Input
           id="jiraBaseUrl"
@@ -119,7 +121,8 @@ export const SettingsView: FC<SettingsViewProps> = ({ load, save }) => {
 
       <div className="space-y-1.5">
         <Label htmlFor="jiraServiceEmail">
-          Service account email <span className="text-destructive">*</span>
+          Jira service account email{" "}
+          <span className="text-destructive">*</span>
         </Label>
         <Input
           id="jiraServiceEmail"
@@ -134,7 +137,7 @@ export const SettingsView: FC<SettingsViewProps> = ({ load, save }) => {
 
       <div className="space-y-1.5">
         <Label htmlFor="jiraApiToken">
-          API token <span className="text-destructive">*</span>
+          Jira API token <span className="text-destructive">*</span>
           {value.hasJiraApiToken && (
             <span className="ml-2 text-xs text-success-600">
               (stored — leave blank to keep)
@@ -151,12 +154,15 @@ export const SettingsView: FC<SettingsViewProps> = ({ load, save }) => {
         />
       </div>
 
-      <h3 className="text-sm font-semibold mt-3">Defaults for new issues</h3>
+      <h3 className="text-sm font-semibold mt-3">
+        Defaults applied to new bug reports
+      </h3>
       <Separator className="my-1" />
 
       <div className="space-y-1.5">
         <Label htmlFor="projectKey">
-          Project key <span className="text-destructive">*</span>
+          Target Jira project key{" "}
+          <span className="text-destructive">*</span>
         </Label>
         <Input
           id="projectKey"
@@ -168,9 +174,12 @@ export const SettingsView: FC<SettingsViewProps> = ({ load, save }) => {
       </div>
 
       <div className="space-y-1.5">
-        <Label htmlFor="defaultIssueType">Default issue type</Label>
+        <Label htmlFor="defaultIssueType">
+          Default Jira issue type
+        </Label>
         <Input
           id="defaultIssueType"
+          placeholder="e.g. Bug"
           value={value.defaultIssueType}
           onChange={(e) =>
             setValue({ ...value, defaultIssueType: e.target.value })
@@ -179,9 +188,12 @@ export const SettingsView: FC<SettingsViewProps> = ({ load, save }) => {
       </div>
 
       <div className="space-y-1.5">
-        <Label htmlFor="defaultLabels">Default labels (comma-separated)</Label>
+        <Label htmlFor="defaultLabels">
+          Default Jira labels (comma-separated)
+        </Label>
         <Input
           id="defaultLabels"
+          placeholder="e.g. page-builder, frontend"
           value={value.defaultLabels.join(", ")}
           onChange={(e) =>
             setValue({
@@ -196,7 +208,9 @@ export const SettingsView: FC<SettingsViewProps> = ({ load, save }) => {
       </div>
 
       <div className="space-y-1.5">
-        <Label htmlFor="defaultBoardId">Target board ID (optional)</Label>
+        <Label htmlFor="defaultBoardId">
+          Jira board ID for sprint assignment (optional)
+        </Label>
         <Input
           id="defaultBoardId"
           type="number"
@@ -219,11 +233,15 @@ export const SettingsView: FC<SettingsViewProps> = ({ load, save }) => {
         </p>
       </div>
 
-      <h3 className="text-sm font-semibold mt-3">Admins</h3>
+      <h3 className="text-sm font-semibold mt-3">
+        Plugin administrators
+      </h3>
       <Separator className="my-1" />
 
       <div className="space-y-1.5">
-        <Label htmlFor="adminEmails">Admin emails (comma-separated)</Label>
+        <Label htmlFor="adminEmails">
+          Admin emails allowed to edit settings (comma-separated)
+        </Label>
         <Input
           id="adminEmails"
           placeholder="alice@co.com, bob@co.com"
