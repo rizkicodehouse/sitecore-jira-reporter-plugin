@@ -5,7 +5,8 @@ import {
   TEMPLATE_ID_BUG_REPORT
 } from "@/services/sitecore/templates";
 import {
-  BUG_REPORT_TEMPLATE_PATH
+  BUG_REPORT_TEMPLATE_PATH,
+  PLUGIN_BUG_ICON
 } from "@/services/sitecore/template-provision";
 import {
   ReportRecordSchema, type ReportRecord, type ListPage
@@ -133,7 +134,7 @@ function isDuplicate(e: unknown): boolean {
 function toFields(r: ReportRecord): SitecoreField[] {
   const reporter = r.reporter
     ? `${r.reporter.name} <${r.reporter.email}>` : "";
-  return [
+  const fields: SitecoreField[] = [
     { name: REPORT_FIELD.ticketKey, value: r.jiraKey },
     { name: REPORT_FIELD.ticketUrl, value: r.jiraUrl },
     { name: REPORT_FIELD.summary, value: r.summary },
@@ -154,6 +155,14 @@ function toFields(r: ReportRecord): SitecoreField[] {
     { name: REPORT_FIELD.createdAt,
       value: toSitecoreDatetime(r.createdAt) }
   ];
+
+  // Ensure the created item explicitly marks itself as bucketable
+  // and carries the plugin icon so it doesn't rely on timing of
+  // template standard-values provisioning on the server.
+  fields.push({ name: "__Bucketable", value: "1" });
+  fields.push({ name: "__Icon", value: PLUGIN_BUG_ICON });
+
+  return fields;
 }
 
 // Sitecore's Datetime field expects ISO-8601 *basic*
