@@ -1,30 +1,41 @@
 # Vercel deployment guide
 
 This guide walks through deploying the Bug Reporter for Jira
-plugin to Vercel with Upstash Redis as the multi-tenant
-settings store.
+plugin to Vercel. Tenant settings and bug-report history are
+stored as Sitecore items via the XM Cloud Authoring GraphQL
+API — no external database is provisioned from Vercel.
 
 ## Prerequisites
 
 - GitHub account with the repo pushed (see step 1 below)
 - Vercel account (free Hobby tier works for testing)
 - Node.js 22.14+ locally (for generating the encryption key)
+- Access to a Sitecore XM Cloud tenant (the plugin persists
+  everything there)
 
 ## Architecture summary
 
 - **Runtime:** Next.js 15 on Vercel serverless functions
-- **Persistence:** Upstash Redis (via Vercel Marketplace) for
-  per-tenant settings
-- **Secrets:** Jira API tokens are AES-encrypted at rest using
-  `SETTINGS_ENCRYPTION_KEY`
-- **In-memory cache:** 30s TTL in `SettingsStore` reduces Redis
-  read load
+- **Persistence:** Sitecore items under
+  `/sitecore/content/{tenant}/{site}/` — written through the
+  XMC Authoring GraphQL API from the iframe using the
+  Marketplace SDK bearer token. The Vercel backend never
+  holds XMC credentials.
+- **Templates:** `Feature/BugReporterJira` templates are
+  created idempotently on first use by
+  `src/services/sitecore/template-provision.ts`.
+- **Secrets:** Jira API tokens are AES-256-GCM encrypted at
+  rest before being written to the settings item, using a
+  per-tenant DEK derived from `SETTINGS_ENCRYPTION_KEY` via
+  HKDF-SHA-256.
+- **In-memory cache:** `SettingsStore` caches per-tenant
+  settings in-process (default 30s TTL).
 
 ## Required environment variables
 
 | Variable | Required | Purpose |
 |----------|----------|---------|
-| `ALLOWED_PLUGIN_ORIGIN` | Yes | Space-separated Sitecore host origins for CSP + CORS |
+| `ALLOWED_PLUGIN_ORIGIN` | Yes (prod) | Space-separated Sitecore host origins for CSP `frame-ancestors` + CORS |
 | `AUTH0_SECRET` | Yes | Cookie signing key (32 random bytes, base64) |
 | `AUTH0_DOMAIN` | Yes | `https://auth.sitecorecloud.io` |
 | `AUTH0_CLIENT_ID` | Yes | From Cloud Portal credentials dialog |
@@ -32,11 +43,18 @@ settings store.
 | `AUTH0_AUDIENCE` | Yes | `https://api-webapp.sitecorecloud.io` |
 | `AUTH0_SCOPE` | Yes | `openid profile email offline_access` |
 | `APP_BASE_URL` | Yes | Public HTTPS URL of this deployment |
-| `UPSTASH_REDIS_REST_URL` | Yes (multi-tenant) | Redis endpoint |
-| `UPSTASH_REDIS_REST_TOKEN` | Yes (multi-tenant) | Redis auth |
-| `SETTINGS_ENCRYPTION_KEY` | Strongly recommended | AES key for Jira tokens |
-| `PLUGIN_ADMIN_EMAILS` | Optional | Super-admin allowlist |
+| `SITECORE_AUTHORING_BASE_URL` | Yes | XMC Authoring GraphQL endpoint used by the client |
+| `SETTINGS_ENCRYPTION_KEY` | Strongly recommended | Base64 of 32 bytes. Root KEK for per-tenant DEK derivation |
+| `PLUGIN_ADMIN_EMAILS` | Optional | Comma-separated super-admin allowlist |
 | `MAX_ATTACHMENT_MB` | Optional | Upload cap (default 25) |
+| `SITECORE_TEMPLATE_SETTINGS` | Optional | Pin settings template GUID if deployed via SCS |
+| `SITECORE_TEMPLATE_BUG_REPORT` | Optional | Pin bug-report template GUID if deployed via SCS |
+| `JIRA_BASE_URL` | Optional | Dev fallback when tenant hasn't set creds via UI |
+| `JIRA_SERVICE_EMAIL` | Optional | Dev fallback |
+| `JIRA_API_TOKEN` | Optional | Dev fallback |
+| `JIRA_DEFAULT_PROJECT_KEY` | Optional | Dev fallback |
+| `JIRA_DEFAULT_ISSUE_TYPE` | Optional | Dev fallback (default `Bug`) |
+| `XMC_LOCAL_MODE` | **Never in prod** | `true` swaps XMC for the local mock — dev only |
 
 Auth0 credentials come from the Sitecore Cloud Portal
 "Create credentials for regular web app" dialog — see
@@ -44,13 +62,15 @@ Auth0 credentials come from the Sitecore Cloud Portal
 for the full walkthrough including the allowed callback /
 logout / origin URLs.
 
-Without the Upstash vars, the plugin falls back to an in-memory
-settings store that resets on every cold start — acceptable for
-local dev, not for production.
+Without `SETTINGS_ENCRYPTION_KEY`, the runtime generates an
+ephemeral KEK and logs a warning. All encrypted Jira tokens
+become unreadable after the next cold start. Set this env
+var explicitly before any tenant saves settings.
 
-Without `SETTINGS_ENCRYPTION_KEY`, production bootstraps an
-ephemeral key into Redis and logs a warning. Set it explicitly
-so tokens survive a key rotation of Redis itself.
+`XMC_LOCAL_MODE=true` is **dev-only**. It short-circuits the
+real Authoring client with an in-process mock that persists
+to `.xmc-local/state.json`. Do not set it in any Vercel
+environment that points at a real Sitecore tenant.
 
 ## Deployment steps
 
@@ -77,21 +97,7 @@ git push -u origin main
 4. **Do not click Deploy yet.** The build will fail without
    `ALLOWED_PLUGIN_ORIGIN`.
 
-### 3. Provision Upstash Redis
-
-1. In the project view, open the *Storage* tab.
-2. Click *Create Database* → *Marketplace* → *Upstash* →
-   *Redis*.
-3. Choose the *Free* plan (10k commands/day, 256MB).
-4. Pick a region close to your Vercel deployment region
-   (e.g., `us-east-1` / `iad1` for US East).
-5. Click *Connect Project* and select all three environments
-   (Production, Preview, Development).
-
-Vercel auto-injects `UPSTASH_REDIS_REST_URL` and
-`UPSTASH_REDIS_REST_TOKEN` — no manual copy/paste needed.
-
-### 4. Generate encryption key
+### 3. Generate encryption keys
 
 Locally:
 
@@ -100,42 +106,55 @@ node -e "console.log(require('crypto')\
   .randomBytes(32).toString('base64'))"
 ```
 
-Copy the output.
+Run it twice — one value for `SETTINGS_ENCRYPTION_KEY`, a
+separate value for `AUTH0_SECRET`.
 
-### 5. Set remaining env vars
+### 4. Set environment variables
 
 Project → Settings → Environment Variables. Add each for all
-three scopes (Production, Preview, Development):
+three scopes (Production, Preview, Development) unless noted:
 
-- `ALLOWED_PLUGIN_ORIGIN` = `https://pages.sitecorecloud.io https://app.sitecorecloud.io`
-  (space-separated — `pages` hosts the context panel iframe,
-  `app` hosts the full-screen iframe from XMC Portfolio)
-- `SETTINGS_ENCRYPTION_KEY` = (paste key from step 4)
-- `PLUGIN_ADMIN_EMAILS` = (optional, comma-separated)
-- `AUTH0_SECRET` = (generate separately — 32 random bytes
-  base64, same command as step 4)
+- `ALLOWED_PLUGIN_ORIGIN` =
+  `https://pages.sitecorecloud.io https://app.sitecorecloud.io`
+  (space-separated — `pages` hosts the Pages Context Panel
+  iframe, `app` hosts the Full Screen iframe from XMC
+  Portfolio)
+- `SETTINGS_ENCRYPTION_KEY` = (paste first key from step 3)
+- `AUTH0_SECRET` = (paste second key from step 3)
 - `AUTH0_DOMAIN` = `https://auth.sitecorecloud.io`
-- `AUTH0_CLIENT_ID`, `AUTH0_CLIENT_SECRET` = from the
-  Cloud Portal "Create credentials" dialog (see
+- `AUTH0_CLIENT_ID`, `AUTH0_CLIENT_SECRET` = from the Cloud
+  Portal "Create credentials" dialog (see
   [auth0-cloud-portal-setup.md](./auth0-cloud-portal-setup.md))
 - `AUTH0_AUDIENCE` = `https://api-webapp.sitecorecloud.io`
 - `AUTH0_SCOPE` = `openid profile email offline_access`
-- `APP_BASE_URL` = the public HTTPS URL of this deployment
+- `APP_BASE_URL` = public HTTPS URL of this deployment
   (Production scope: the Vercel production URL; Preview
   scope: leave unset and the SDK reads `VERCEL_URL`)
+- `SITECORE_AUTHORING_BASE_URL` = your XMC Authoring GraphQL
+  endpoint (from the XM Cloud tenant deployment)
+- `PLUGIN_ADMIN_EMAILS` = (optional, comma-separated)
+- `MAX_ATTACHMENT_MB` = (optional, default 25)
 
-### 6. Deploy
+Do **not** set `XMC_LOCAL_MODE` in Vercel — leave it unset
+for every Vercel environment.
+
+### 5. Deploy
 
 Click *Deploy* from the project overview. First build should
 succeed in ~2 minutes.
 
-### 7. Verify
+### 6. Verify
 
-- Load the deployed URL — the app should render.
-- Open the Settings UI → save tenant config → confirm it
-  persists across a redeploy or cold start.
-- Check Vercel Logs for any `ALLOWED_PLUGIN_ORIGIN` or
-  Upstash connection errors.
+- Load the deployed URL — the landing page should render.
+- Install the plugin in a Sitecore tenant (see
+  [marketplace-registration.md](./marketplace-registration.md)),
+  open the Pages Context Panel, save tenant config, confirm
+  it persists across a redeploy.
+- Confirm the settings item and `Bug Reports` folder appear
+  under `/sitecore/content/{tenant}/{site}/` in Content
+  Editor — the bootstrapper auto-creates them on first use.
+- Check Vercel Logs for any `ALLOWED_PLUGIN_ORIGIN`,
+  provisioning, or Authoring GraphQL errors.
 
 ## Post-deployment
 
@@ -155,25 +174,36 @@ actual ancestor origin from devtools:
 
 ## Operations
 
-### Upstash usage monitoring
+### Sitecore API usage
 
-Free tier = 10k commands/day. The 30s in-memory cache in
-`SettingsStore` (see `src/lib/settings-store.ts`) keeps reads
-low. If you hit the limit, Vercel logs will surface errors
-like `command limit exceeded` — upgrade Upstash plan (pay as
-you go ~$0.20 per 100k commands).
+Every `SettingsStore.get` / `put` call becomes an Authoring
+GraphQL read/write against the tenant. The in-process cache
+(default 30s TTL — see `src/lib/settings-store.ts`) keeps
+read volume low for hot tenants. Bug-report writes and
+history reads likewise go through
+`src/lib/reports-sitecore-repo.ts`.
 
-### Cold-start behavior
+Authoring GraphQL rate limits are enforced by XM Cloud, not
+Vercel. If you see throttling errors in logs, review the
+burst patterns on the Jira flow (each bug creation triggers
+one settings read plus one bug-report write).
 
-First request after idle hits Redis for tenant settings
-(~50ms added latency). Subsequent requests in the same
-instance hit the in-memory cache until the 30s TTL expires.
+### Cold-start behaviour
+
+First request after idle hits the Authoring GraphQL endpoint
+for tenant settings (~100–200ms added latency depending on
+region). Subsequent requests in the same instance hit the
+in-memory cache until the 30s TTL expires.
 
 ### Rotating the encryption key
 
-Rotating `SETTINGS_ENCRYPTION_KEY` invalidates all stored
-Jira API tokens. Tenants will need to re-enter their tokens
-via the Settings UI. Plan rotations accordingly.
+Because the per-tenant DEK is derived deterministically from
+`SETTINGS_ENCRYPTION_KEY` + `tenantId` via HKDF-SHA-256,
+changing the env var invalidates every encrypted Jira token
+the plugin has stored across **all** tenants. After rotation
+each tenant must re-enter their Jira API token via the
+Settings UI; the re-save will re-encrypt under the new key.
+Plan rotations accordingly.
 
 ## Troubleshooting
 
@@ -182,10 +212,12 @@ via the Settings UI. Plan rotations accordingly.
 The env var is missing or not available to the Production
 scope. Check Project → Settings → Environment Variables.
 
-### Settings reset after every request
+### Settings appear to reset every cold start
 
-`UPSTASH_REDIS_REST_URL` is not set in the current
-environment scope. The store silently falls back to memory.
+Either `SETTINGS_ENCRYPTION_KEY` is unset (so the ephemeral
+KEK can't decrypt tokens written by the previous instance),
+or the plugin is still running under `XMC_LOCAL_MODE=true`
+in Vercel. Fix whichever applies.
 
 ### Settings UI returns 401 on deployed app
 
@@ -200,63 +232,65 @@ doesn't, verify:
   (Sitecore Pages needs `SameSite=None; Secure`, which the
   plugin sets — check browser devtools)
 
-### `Unauthorized` / `WRONGPASS` from Upstash
+### Settings / bug-report items missing in Sitecore
 
-The Marketplace integration was disconnected. Re-connect via
-*Storage* tab, or regenerate the token in the Upstash console
-and update the env vars.
+Check Vercel function logs for provisioning errors. The
+bootstrap flow in `src/lib/sitecore-provision.ts` grafts a
+settings folder and a `Bug Reports` bucket under
+`/sitecore/content/{tenant}/{site}/` the first time the
+plugin runs for a tenant. Common failures:
+
+- The Marketplace SDK bearer token in the iframe does not
+  have write permission on the target site. Ask the XM Cloud
+  admin to confirm the app role.
+- `SITECORE_AUTHORING_BASE_URL` points at a stale tenant —
+  confirm the URL against XM Cloud Deploy.
+- Template GUIDs are pinned via `SITECORE_TEMPLATE_*` env
+  vars but do not match what was deployed via Sitecore
+  Content Serialization.
 
 ### Jira tokens fail to decrypt after redeploy
 
 Symptom: API routes that decrypt Jira creds (e.g.
-`/api/jira/create-meta`, `/api/jira/issue`, `/api/settings`)
-return 500 with the Node crypto error
+`/api/jira/create-meta`, `/api/jira/issue`,
+`/api/settings`) return 500 with the Node crypto error
 `Unsupported state or unable to authenticate data` in Vercel
 function logs.
 
-Root cause: the current `SETTINGS_ENCRYPTION_KEY` (the KEK)
-cannot unwrap the per-tenant DEK stored in Redis at
-`plugin:dek:{tenantId}`. Common triggers:
+Root cause: the current `SETTINGS_ENCRYPTION_KEY` cannot
+re-derive the per-tenant DEK that encrypted the token.
+Common triggers:
 
 - The env var was unset on the first deploy, so an ephemeral
-  KEK wrapped the DEK; a later deploy set a real key, which
-  does not match.
-- The env var value was rotated without re-wrapping DEKs.
-- Upstash database was restored from a backup taken under a
-  different key.
+  KEK encrypted the token; a later deploy set a real key,
+  which does not match.
+- The env var value was rotated.
+- The stored blob was written against a different `tenantId`
+  (e.g. the value in `X-Tenant-Id` now differs from what it
+  was at save-time).
 
-Remediation (pick one):
+Remediation:
 
-1. Restore the original KEK. If you still have it, set
-   `SETTINGS_ENCRYPTION_KEY` back to that value, redeploy.
-2. Reset the tenant's encryption. From an Upstash console or
-   a scripted redis client:
-
-   ```bash
-   DEL plugin:dek:{tenantId}
-   DEL plugin:settings:{tenantId}
-   ```
-
-   Then have that tenant re-enter their Jira API token via
-   the Settings UI. A new DEK will be generated and wrapped
-   with the current KEK.
+1. If you still have the original KEK, restore
+   `SETTINGS_ENCRYPTION_KEY` to that value and redeploy.
+2. Otherwise have the tenant re-enter their Jira API token
+   via the Settings UI. The `put` path overwrites the
+   encrypted blob under the new key.
 
 Prevent recurrence by setting `SETTINGS_ENCRYPTION_KEY`
 explicitly on the first production deploy (before any tenant
-saves settings) and not rotating it without a re-wrap
-migration.
+saves settings) and coordinating rotations with a
+per-tenant re-save.
 
 ## Alternative persistence backends
 
-The `SettingsStore` interface only needs `get`/`set` with
-JSON values. Alternatives (in order of effort):
-
-- **Neon Postgres** — ~30-line adapter, better if you want
-  SQL queries or an admin dashboard later.
-- **Supabase** — similar to Neon, includes auth/storage if
-  you expand scope.
-- **MongoDB Atlas** — JSON-native, free M0 tier.
-- **Cloudflare KV** — global edge KV, needs separate account.
-
-See `src/lib/settings-store.ts` `readKv` / `writeKv` — those
-are the only two methods that need swapping.
+The deployment intentionally keeps tenant state inside
+Sitecore so the plugin remains a single-deploy, zero-DB
+install. If a future requirement needs an external store
+(e.g. cross-tenant analytics), implement the
+`SettingsSitecoreRepo` / `ReportsSitecoreRepo` interfaces in
+`src/lib/settings-sitecore-repo.ts` and
+`src/lib/reports-sitecore-repo.ts` against the new backend,
+then add the driver to
+`src/lib/settings-store.ts` / `src/lib/reports-store.ts`.
+Those are the only seams that need changing.
