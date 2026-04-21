@@ -1,52 +1,48 @@
 "use client";
 import {
-  FC, ReactNode, useCallback, useEffect, useMemo, useState
+  FC,
+  ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
 } from "react";
 import {
-  initSitecoreContext, getPagesContext,
+  initSitecoreContext,
+  getPagesContext,
   subscribeToLayoutChanges,
   subscribeToFieldUpdates,
   parseRenderings,
-  getHostUser
+  getHostUser,
 } from "@/services/sitecore/context";
 import { useXmcClient } from "@/hooks/useXmcClient";
-import type {
-  MarketplaceMutator
-} from "@/services/sitecore/xmc-client-sdk";
+import type { MarketplaceMutator } from "@/services/sitecore/xmc-client-sdk";
 import {
-  parseSiteScopeFromPath, type SiteScope
+  parseSiteScopeFromPath,
+  type SiteScope,
 } from "@/services/sitecore/site-scope";
-import {
-  readSitecoreContextId
-} from "@/services/sitecore/context-id";
-import {
-  InitialInstallationCard
-} from "./InitialInstallationCard";
-import { ReportBugButton } from
-  "@/features/report-bug/ReportBugButton";
-import { ReportBugDialog } from
-  "@/features/report-bug/ReportBugDialog";
-import { SettingsGear } from
-  "@/features/settings/SettingsGear";
+import { readSitecoreContextId } from "@/services/sitecore/context-id";
+import { InitialInstallationCard } from "./InitialInstallationCard";
+import { ReportBugButton } from "@/features/report-bug/ReportBugButton";
+import { ReportBugDialog } from "@/features/report-bug/ReportBugDialog";
+import { SettingsGear } from "@/features/settings/SettingsGear";
 import {
   SettingsView,
   type PublicSettings,
-  type SettingsUpdate
+  type SettingsUpdate,
 } from "@/features/settings/SettingsView";
-import { useAutoContext } from
-  "@/features/report-bug/useAutoContext";
+import { useAutoContext } from "@/features/report-bug/useAutoContext";
 import { JiraClient } from "@/services/jira/client";
 import { buildAuthHeaders } from "@/lib/api-headers";
 import {
-  captureVisibleTab, canCaptureScreen
-} from "@/services/screenshot/capture";
-import {
-  loadClientSettings, saveClientSettings,
+  loadClientSettings,
+  saveClientSettings,
   loadClientStoredSettings,
-  type ClientSettingsContext
+  type ClientSettingsContext,
 } from "@/features/settings/client-store";
 import type {
-  JiraCredsForRequest, JiraSettingsForIssue
+  JiraCredsForRequest,
+  JiraSettingsForIssue,
 } from "@/services/jira/client";
 
 export type PagesPanelProps = {
@@ -58,43 +54,38 @@ const SELECTION_POLL_INTERVAL_MS = 1500;
 
 type SessionState = "unknown" | "authenticated" | "needs-login";
 
-export const PagesPanel: FC<PagesPanelProps> = (
-  { skipAuthForTests }
-) => {
+export const PagesPanel: FC<PagesPanelProps> = ({ skipAuthForTests }) => {
   const [sdkReady, setSdkReady] = useState(false);
   const [hasSelection, setHasSelection] = useState(false);
   const [open, setOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [activeInstanceId, setActiveInstanceId] =
-    useState<string | undefined>();
+  const [activeInstanceId, setActiveInstanceId] = useState<
+    string | undefined
+  >();
   const [tenantId, setTenantId] = useState<string>("");
   const [userEmail, setUserEmail] = useState<string>("");
   const [userName, setUserName] = useState<string>("");
-  const [sessionState, setSessionState] =
-    useState<SessionState>(
-      skipAuthForTests ? "authenticated" : "unknown"
-    );
+  const [sessionState, setSessionState] = useState<SessionState>(
+    skipAuthForTests ? "authenticated" : "unknown",
+  );
   const [authPolling, setAuthPolling] = useState(false);
   const [marketplaceClient, setMarketplaceClient] =
     useState<MarketplaceMutator | null>(null);
-  const [sitecoreContextId, setSitecoreContextId] =
-    useState<string | undefined>();
-  const [siteScope, setSiteScope] =
-    useState<SiteScope | null>(null);
-  const [provisioned, setProvisioned] =
-    useState<boolean | null>(null);
+  const [sitecoreContextId, setSitecoreContextId] = useState<
+    string | undefined
+  >();
+  const [siteScope, setSiteScope] = useState<SiteScope | null>(null);
+  const [provisioned, setProvisioned] = useState<boolean | null>(null);
   // Cached Jira creds + project settings so the Jira side-
   // routes (priorities, create-meta, user-search, issue)
   // can make authenticated calls without re-reading
   // Sitecore. Loaded lazily when the user opens settings or
   // the report dialog.
-  const [jiraCreds, setJiraCreds] =
-    useState<JiraCredsForRequest | null>(null);
-  const [jiraSettings, setJiraSettings] =
-    useState<JiraSettingsForIssue | null>(null);
-  const xmcClient = useXmcClient(
-    marketplaceClient, sitecoreContextId
+  const [jiraCreds, setJiraCreds] = useState<JiraCredsForRequest | null>(null);
+  const [jiraSettings, setJiraSettings] = useState<JiraSettingsForIssue | null>(
+    null,
   );
+  const xmcClient = useXmcClient(marketplaceClient, sitecoreContextId);
 
   useEffect(() => {
     if (skipAuthForTests) return;
@@ -102,7 +93,7 @@ export const PagesPanel: FC<PagesPanelProps> = (
     (async () => {
       try {
         const res = await fetch("/api/xmc/me", {
-          credentials: "include"
+          credentials: "include",
         });
         if (cancelled) return;
         if (res.ok) {
@@ -111,8 +102,7 @@ export const PagesPanel: FC<PagesPanelProps> = (
         }
         if (res.status === 401) {
           const isEmbedded =
-            typeof window !== "undefined" &&
-            window.parent !== window;
+            typeof window !== "undefined" && window.parent !== window;
           if (isEmbedded) {
             // In a cross-site iframe we cannot navigate the
             // top frame (blocked) and a same-frame redirect
@@ -123,14 +113,17 @@ export const PagesPanel: FC<PagesPanelProps> = (
             return;
           }
           const returnTo = encodeURIComponent(
-            window.location.pathname + window.location.search
+            window.location.pathname + window.location.search,
           );
-          window.location.href =
-            `/api/auth/login?returnTo=${returnTo}`;
+          window.location.href = `/api/auth/login?returnTo=${returnTo}`;
         }
-      } catch { /* let API errors surface through other paths */ }
+      } catch {
+        /* let API errors surface through other paths */
+      }
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [skipAuthForTests]);
 
   useEffect(() => {
@@ -139,14 +132,16 @@ export const PagesPanel: FC<PagesPanelProps> = (
     const tick = async () => {
       try {
         const res = await fetch("/api/xmc/me", {
-          credentials: "include"
+          credentials: "include",
         });
         if (cancelled) return;
         if (res.ok) {
           setSessionState("authenticated");
           setAuthPolling(false);
         }
-      } catch { /* keep polling */ }
+      } catch {
+        /* keep polling */
+      }
     };
     const id = setInterval(tick, AUTH_POLL_INTERVAL_MS);
     return () => {
@@ -159,9 +154,7 @@ export const PagesPanel: FC<PagesPanelProps> = (
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
     const id =
-      params.get("marketplaceAppTenantId") ??
-      params.get("tenantId") ??
-      "dev";
+      params.get("marketplaceAppTenantId") ?? params.get("tenantId") ?? "dev";
     setTenantId(id);
   }, []);
 
@@ -172,11 +165,11 @@ export const PagesPanel: FC<PagesPanelProps> = (
       const user = await getHostUser();
       if (cancelled) return;
       setUserEmail(user?.email ?? "");
-      setUserName(
-        user?.displayName ?? user?.name ?? ""
-      );
+      setUserName(user?.displayName ?? user?.name ?? "");
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [sdkReady]);
 
   useEffect(() => {
@@ -186,40 +179,36 @@ export const PagesPanel: FC<PagesPanelProps> = (
     }
     (async () => {
       const isEmbedded =
-        typeof window !== "undefined" &&
-        window.parent !== window;
+        typeof window !== "undefined" && window.parent !== window;
       if (!isEmbedded) {
         const mockCtx = {
           page: {
             id: "dev-page-1",
             path: "/home",
             title: "Dev: Home",
-            language: "en"
+            language: "en",
           },
           site: { name: "dev-site" },
           rendering: {
             instanceId: "dev-rendering-1",
             renderingId: "dev-r-1",
             name: "Hero Banner",
-            templateName: "Hero"
-          }
+            templateName: "Hero",
+          },
         };
         const devStub = {
           query: async () => ({ data: mockCtx }),
-          subscribe: (
-            _: string,
-            handler: (e: unknown) => void
-          ) => {
+          subscribe: (_: string, handler: (e: unknown) => void) => {
             setTimeout(
               () =>
                 handler({
                   type: "page-layout",
-                  renderingInstanceId: "dev-rendering-1"
+                  renderingInstanceId: "dev-rendering-1",
                 }),
-              100
+              100,
             );
             return () => {};
-          }
+          },
         };
         initSitecoreContext(devStub);
         setSdkReady(true);
@@ -227,52 +216,43 @@ export const PagesPanel: FC<PagesPanelProps> = (
       }
       const [clientMod, xmcMod] = await Promise.all([
         import("@sitecore-marketplace-sdk/client"),
-        import("@sitecore-marketplace-sdk/xmc")
+        import("@sitecore-marketplace-sdk/xmc"),
       ]);
       const real = await clientMod.ClientSDK.init({
         target: window.parent,
         modules: [xmcMod.XMC],
-        ...(process.env
-          .NEXT_PUBLIC_SITECORE_HOST_ORIGIN
+        ...(process.env.NEXT_PUBLIC_SITECORE_HOST_ORIGIN
           ? {
-              origin:
-                process.env.NEXT_PUBLIC_SITECORE_HOST_ORIGIN
+              origin: process.env.NEXT_PUBLIC_SITECORE_HOST_ORIGIN,
             }
-          : {})
+          : {}),
       });
       const adapter = {
         query: async (name: string) => {
-          const r = await real.query(
-            name as "pages.context"
-          );
+          const r = await real.query(name as "pages.context");
           return { data: r.data };
         },
-        subscribe: (
-          topic: string,
-          handler: (e: unknown) => void
-        ) =>
+        subscribe: (topic: string, handler: (e: unknown) => void) =>
           real.subscribe(
             topic as
               | "pages.content.layoutUpdated"
               | "pages.content.fieldsUpdated",
             {
-              onData: (d) => handler(d)
-            }
-          )
+              onData: (d) => handler(d),
+            },
+          ),
       };
       initSitecoreContext(adapter);
-      setMarketplaceClient(
-        real as unknown as MarketplaceMutator
-      );
+      setMarketplaceClient(real as unknown as MarketplaceMutator);
       try {
         const pagesCtx = await getPagesContext();
-        const scope = parseSiteScopeFromPath(
-          pagesCtx?.pageInfo?.path
-        );
+        const scope = parseSiteScopeFromPath(pagesCtx?.pageInfo?.path);
         setSiteScope(scope);
         const ctxId = await readSitecoreContextId(adapter);
         setSitecoreContextId(ctxId);
-      } catch { /* scope stays null */ }
+      } catch {
+        /* scope stays null */
+      }
       setSdkReady(true);
     })();
   }, [skipAuthForTests]);
@@ -284,9 +264,7 @@ export const PagesPanel: FC<PagesPanelProps> = (
       try {
         const ctx = await getPagesContext();
         setHasSelection(Boolean(ctx?.pageInfo));
-        const next = parseSiteScopeFromPath(
-          ctx?.pageInfo?.path
-        );
+        const next = parseSiteScopeFromPath(ctx?.pageInfo?.path);
         // Only fire setState when the *content* actually
         // changed. parseSiteScopeFromPath returns a fresh
         // object each poll tick; without this guard the
@@ -296,9 +274,12 @@ export const PagesPanel: FC<PagesPanelProps> = (
         // 1.5s poll and wipes in-flight form edits.
         setSiteScope((prev) => {
           if (prev === next) return prev;
-          if (prev && next &&
-              prev.tenant === next.tenant &&
-              prev.site === next.site) {
+          if (
+            prev &&
+            next &&
+            prev.tenant === next.tenant &&
+            prev.site === next.site
+          ) {
             return prev;
           }
           return next;
@@ -317,7 +298,7 @@ export const PagesPanel: FC<PagesPanelProps> = (
     }
     const poll = setInterval(
       () => refreshSelection(),
-      SELECTION_POLL_INTERVAL_MS
+      SELECTION_POLL_INTERVAL_MS,
     );
     return () => {
       clearInterval(poll);
@@ -333,60 +314,68 @@ export const PagesPanel: FC<PagesPanelProps> = (
         if (!evt.itemId) return;
         try {
           const ctx = await getPagesContext();
-          const list = parseRenderings(
-            ctx?.pageInfo?.presentationDetails
-          );
+          const list = parseRenderings(ctx?.pageInfo?.presentationDetails);
           const match = list.find((r) =>
-            r.dataSource?.toLowerCase().endsWith(
-              evt.itemId!.toLowerCase()
-            )
+            r.dataSource?.toLowerCase().endsWith(evt.itemId!.toLowerCase()),
           );
           if (match) setActiveInstanceId(match.instanceId);
-        } catch { /* ignore */ }
+        } catch {
+          /* ignore */
+        }
       });
-    } catch { /* event unsupported */ }
-    return () => { if (off) off(); };
+    } catch {
+      /* event unsupported */
+    }
+    return () => {
+      if (off) off();
+    };
   }, [sdkReady]);
 
   const autoCtx = useAutoContext({
     tenantId,
     userEmail,
     userName,
-    activeRenderingInstanceId: activeInstanceId
+    activeRenderingInstanceId: activeInstanceId,
   });
   const jira = useMemo(
-    () => new JiraClient({
-      tenantId, userEmail, userName,
-      xmcClient, siteScope,
-      creds: jiraCreds,
-      settings: jiraSettings
-    }),
+    () =>
+      new JiraClient({
+        tenantId,
+        userEmail,
+        userName,
+        xmcClient,
+        siteScope,
+        creds: jiraCreds,
+        settings: jiraSettings,
+      }),
     [
-      tenantId, userEmail, userName,
-      xmcClient, siteScope, jiraCreds, jiraSettings
-    ]
+      tenantId,
+      userEmail,
+      userName,
+      xmcClient,
+      siteScope,
+      jiraCreds,
+      jiraSettings,
+    ],
   );
 
   const identity = useMemo(
     () => ({ tenantId, userEmail, userName }),
-    [tenantId, userEmail, userName]
+    [tenantId, userEmail, userName],
   );
 
-  const resolveSettingsCtx = useCallback(
-    (): ClientSettingsContext => {
-      if (!xmcClient || !siteScope) {
-        throw { category: "sdk-not-ready" };
-      }
-      return {
-        xmcClient,
-        tenant: siteScope.tenant,
-        site: siteScope.site,
-        tenantId,
-        authHeaders: buildAuthHeaders(identity)
-      };
-    },
-    [xmcClient, siteScope, tenantId, identity]
-  );
+  const resolveSettingsCtx = useCallback((): ClientSettingsContext => {
+    if (!xmcClient || !siteScope) {
+      throw { category: "sdk-not-ready" };
+    }
+    return {
+      xmcClient,
+      tenant: siteScope.tenant,
+      site: siteScope.site,
+      tenantId,
+      authHeaders: buildAuthHeaders(identity),
+    };
+  }, [xmcClient, siteScope, tenantId, identity]);
 
   // useCallback-stable so SettingsView's load effect only
   // fires once per dep change (xmcClient/siteScope/tenantId)
@@ -409,7 +398,7 @@ export const PagesPanel: FC<PagesPanelProps> = (
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [xmcClient, siteScope, tenantId, userEmail, userName]
+    [xmcClient, siteScope, tenantId, userEmail, userName],
   );
 
   const saveSettings = useCallback(
@@ -423,7 +412,7 @@ export const PagesPanel: FC<PagesPanelProps> = (
       return saved;
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [xmcClient, siteScope, tenantId, userEmail, userName]
+    [xmcClient, siteScope, tenantId, userEmail, userName],
   );
 
   const primeJiraCache = useCallback(async () => {
@@ -434,24 +423,23 @@ export const PagesPanel: FC<PagesPanelProps> = (
         tenant: siteScope.tenant,
         site: siteScope.site,
         tenantId,
-        authHeaders: buildAuthHeaders(identity)
+        authHeaders: buildAuthHeaders(identity),
       });
       setProvisioned(true);
       setJiraCreds(
-        stored.jiraBaseUrl && stored.jiraServiceEmail
-          && stored.jiraApiTokenEnc
+        stored.jiraBaseUrl && stored.jiraServiceEmail && stored.jiraApiTokenEnc
           ? {
               baseUrl: stored.jiraBaseUrl,
               serviceEmail: stored.jiraServiceEmail,
-              apiTokenEnc: stored.jiraApiTokenEnc
+              apiTokenEnc: stored.jiraApiTokenEnc,
             }
-          : null
+          : null,
       );
       setJiraSettings({
         projectKey: stored.projectKey,
         defaultIssueType: stored.defaultIssueType,
         defaultLabels: stored.defaultLabels,
-        defaultBoardId: stored.defaultBoardId
+        defaultBoardId: stored.defaultBoardId,
       });
     } catch (e) {
       const tag = (e as { category?: string })?.category;
@@ -462,8 +450,9 @@ export const PagesPanel: FC<PagesPanelProps> = (
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [xmcClient, siteScope, tenantId, userEmail, userName]);
 
-  useEffect(() => { void primeJiraCache(); },
-    [primeJiraCache]);
+  useEffect(() => {
+    void primeJiraCache();
+  }, [primeJiraCache]);
 
   // Setup is "complete" once the site has been provisioned
   // AND the admin has filled in Jira creds + project key.
@@ -475,9 +464,7 @@ export const PagesPanel: FC<PagesPanelProps> = (
     provisioned !== false &&
     Boolean(jiraCreds) &&
     Boolean(jiraSettings?.projectKey);
-  const needsSetup =
-    xmcClient !== null && siteScope !== null &&
-    !setupComplete;
+  const needsSetup = xmcClient !== null && siteScope !== null && !setupComplete;
 
   if (sessionState === "needs-login") {
     return (
@@ -488,13 +475,11 @@ export const PagesPanel: FC<PagesPanelProps> = (
             Sign-in required
           </span>
           <h2 className="text-base font-semibold tracking-tight text-gray-900">
-            Sign in to{" "}
-            <span className="text-primary">Bug Reporter</span>
+            Sign in to <span className="text-primary">Bug Reporter</span>
           </h2>
           <p className="text-xs leading-relaxed text-gray-600">
-            Opens your Sitecore login in a new tab. This
-            panel refreshes automatically once your session
-            is ready.
+            Opens your Sitecore login in a new tab. This panel refreshes
+            automatically once your session is ready.
           </p>
           <a
             href="/api/auth/login?returnTo=/auth-complete"
@@ -553,8 +538,7 @@ export const PagesPanel: FC<PagesPanelProps> = (
                 />
               </>
             )}
-            <SettingsGear
-              onClick={() => setSettingsOpen((x) => !x)} />
+            <SettingsGear onClick={() => setSettingsOpen((x) => !x)} />
           </div>
         </div>
         <h2 className="text-base font-semibold tracking-tight text-gray-900">
@@ -578,12 +562,12 @@ export const PagesPanel: FC<PagesPanelProps> = (
               </p>
               <p className="text-xs leading-relaxed text-gray-700">
                 {provisioned === false
-                  ? "Install the plugin on this site, then "
-                    + "configure your Jira connection."
-                  : "Open settings to configure your Jira "
-                    + "connection and target project. "
-                    + "The Report Bug button appears once "
-                    + "setup is complete."}
+                  ? "Install the plugin on this site, then " +
+                    "configure your Jira connection."
+                  : "Open settings to configure your Jira " +
+                    "connection and target project. " +
+                    "The Report Bug button appears once " +
+                    "setup is complete."}
               </p>
             </div>
           </div>
@@ -591,32 +575,28 @@ export const PagesPanel: FC<PagesPanelProps> = (
         {!needsSetup && (
           <ReportBugButton
             disabled={!hasSelection}
-            onClick={() => setOpen(true)} />
+            onClick={() => setOpen(true)}
+          />
         )}
         {!hasSelection && setupComplete && (
           <div className="flex items-start gap-3 rounded-xl border border-primary-100/80 bg-primary-50/40 p-3">
             <div className="h-6 w-6 shrink-0 rounded-full bg-primary-200 shadow-inner" />
             <p className="text-xs leading-relaxed text-gray-600">
-              Open a page in Sitecore Pages to report a bug
-              on it.
+              Open a page in Sitecore Pages to report a bug on it.
             </p>
           </div>
         )}
         {settingsOpen && (
           <div className="rounded-xl border border-primary-100/80 bg-white/70 p-3 backdrop-blur">
-            {provisioned === false
-              ? (
-                <InitialInstallationCard
-                  xmcClient={xmcClient}
-                  siteScope={siteScope}
-                  onReady={() => setProvisioned(true)}
-                />
-              )
-              : (
-                <SettingsView
-                  load={loadSettings}
-                  save={saveSettings} />
-              )}
+            {provisioned === false ? (
+              <InitialInstallationCard
+                xmcClient={xmcClient}
+                siteScope={siteScope}
+                onReady={() => setProvisioned(true)}
+              />
+            ) : (
+              <SettingsView load={loadSettings} save={saveSettings} />
+            )}
           </div>
         )}
       </div>
@@ -624,27 +604,17 @@ export const PagesPanel: FC<PagesPanelProps> = (
         <ReportBugDialog
           context={autoCtx.context}
           submit={(p) => jira.createIssue(p)}
-          uploadAttachment={(k, b) =>
-            jira.uploadAttachment(k, b)}
+          uploadAttachment={(k, b) => jira.uploadAttachment(k, b)}
           onClose={() => setOpen(false)}
-          captureScreen={
-            canCaptureScreen()
-              ? async () => {
-                  const r = await captureVisibleTab();
-                  return r.ok ? r.blob : null;
-                }
-              : undefined
-          }
           loadCreateMeta={() => {
             const sPromise = loadSettings();
             return sPromise.then((s) =>
-              jira.getCreateMeta(
-                s.projectKey, s.defaultIssueType
-              )
+              jira.getCreateMeta(s.projectKey, s.defaultIssueType),
             );
           }}
           searchUsers={(q) => jira.searchUsers(q)}
-          loadPriorities={() => jira.getPriorities()} />
+          loadPriorities={() => jira.getPriorities()}
+        />
       )}
     </PanelShell>
   );
@@ -658,10 +628,7 @@ const PanelShell: FC<{
     className="relative min-h-screen overflow-hidden p-3"
     aria-label={ariaLabel}
   >
-    <div
-      aria-hidden
-      className="pointer-events-none absolute inset-0 -z-10"
-    >
+    <div aria-hidden className="pointer-events-none absolute inset-0 -z-10">
       <div className="absolute inset-0 bg-gradient-to-br from-[#f7f6ff] via-white to-[#fff4fe]" />
       <div className="absolute -top-16 -left-12 h-56 w-56 rounded-full bg-primary-200/40 blur-3xl" />
       <div className="absolute -bottom-20 -right-12 h-56 w-56 rounded-full bg-cyan-200/40 blur-3xl" />

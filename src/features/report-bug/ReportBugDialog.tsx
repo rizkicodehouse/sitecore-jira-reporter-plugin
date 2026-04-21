@@ -2,9 +2,7 @@
 import { FC, useEffect, useState } from "react";
 import type { ReportContext } from "./types";
 import { datasourceFromRendering } from "./useAutoContext";
-import type {
-  NormalizedField
-} from "@/lib/jira-create-meta";
+import type { NormalizedField } from "@/lib/jira-create-meta";
 import { doc, para } from "@/lib/adf";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,12 +11,8 @@ import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
-import {
-  AssigneePicker, type AssigneeUser
-} from "./AssigneePicker";
-import {
-  PriorityPicker, type JiraPriority
-} from "./PriorityPicker";
+import { AssigneePicker, type AssigneeUser } from "./AssigneePicker";
+import { PriorityPicker, type JiraPriority } from "./PriorityPicker";
 
 type SubmitFn = (input: {
   summary: string;
@@ -30,19 +24,19 @@ type SubmitFn = (input: {
   priority?: { id: string } | null;
 }) => Promise<{ key: string; url: string }>;
 
-type UploadFn = (issueKey: string, blob: Blob) =>
-  Promise<{ id: string }>;
+type UploadFn = (issueKey: string, blob: Blob) => Promise<{ id: string }>;
 
-type MetaLoader = () =>
-  Promise<{ fields: NormalizedField[] }>;
+type MetaLoader = () => Promise<{ fields: NormalizedField[] }>;
 
 type UserSearchFn = (q: string) => Promise<AssigneeUser[]>;
 
 type PriorityLoader = () => Promise<JiraPriority[]>;
 
 type Attachment = {
-  id: string; source: "capture" | "upload";
-  blob: Blob; name: string;
+  id: string;
+  blob: Blob;
+  name: string;
+  source: "upload";
 };
 
 // Sentinel value for the rendering picker meaning
@@ -54,40 +48,40 @@ export type ReportBugDialogProps = {
   submit: SubmitFn;
   uploadAttachment: UploadFn;
   onClose: () => void;
-  captureScreen?: () => Promise<Blob | null>;
   loadCreateMeta?: MetaLoader;
   searchUsers?: UserSearchFn;
   loadPriorities?: PriorityLoader;
 };
 
-export const ReportBugDialog: FC<ReportBugDialogProps> = (
-  { context, submit, uploadAttachment,
-    onClose, captureScreen, loadCreateMeta, searchUsers,
-    loadPriorities }
-) => {
+export const ReportBugDialog: FC<ReportBugDialogProps> = ({
+  context,
+  submit,
+  uploadAttachment,
+  onClose,
+  loadCreateMeta,
+  searchUsers,
+  loadPriorities,
+}) => {
   const [summary, setSummary] = useState("");
   const [desc, setDesc] = useState("");
   const [attach, setAttach] = useState<Attachment[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [created, setCreated] = useState<{
-    key: string; url: string;
+    key: string;
+    url: string;
   } | null>(null);
-  const [pickedInstanceId, setPickedInstanceId] =
-    useState<string>(
-      context.rendering?.instanceId ?? PAGE_LEVEL
-    );
-  const [metaFields, setMetaFields] =
-    useState<NormalizedField[] | null>(null);
+  const [pickedInstanceId, setPickedInstanceId] = useState<string>(
+    context.rendering?.instanceId ?? PAGE_LEVEL,
+  );
+  const [metaFields, setMetaFields] = useState<NormalizedField[] | null>(null);
   const [metaLoading, setMetaLoading] = useState(false);
-  const [metaError, setMetaError] =
-    useState<string | null>(null);
-  const [dynamicValues, setDynamicValues] =
-    useState<Record<string, unknown>>({});
-  const [assignee, setAssignee] =
-    useState<AssigneeUser | null>(null);
-  const [priority, setPriority] =
-    useState<JiraPriority | null>(null);
+  const [metaError, setMetaError] = useState<string | null>(null);
+  const [dynamicValues, setDynamicValues] = useState<Record<string, unknown>>(
+    {},
+  );
+  const [assignee, setAssignee] = useState<AssigneeUser | null>(null);
+  const [priority, setPriority] = useState<JiraPriority | null>(null);
 
   useEffect(() => {
     if (!loadCreateMeta) return;
@@ -100,16 +94,18 @@ export const ReportBugDialog: FC<ReportBugDialogProps> = (
       } catch (e) {
         if (!cancelled) {
           setMetaError(
-            (e as { userMessage?: string })
-              .userMessage ?? (e as Error).message
-              ?? "Could not load field schema"
+            (e as { userMessage?: string }).userMessage ??
+              (e as Error).message ??
+              "Could not load field schema",
           );
         }
       } finally {
         if (!cancelled) setMetaLoading(false);
       }
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [loadCreateMeta]);
 
   const requiredExtras = (metaFields ?? []).filter(
@@ -117,7 +113,7 @@ export const ReportBugDialog: FC<ReportBugDialogProps> = (
       f.required &&
       !f.hasDefaultValue &&
       !BUILTIN_FIELD_KEYS.has(f.key) &&
-      f.type !== "unsupported"
+      f.type !== "unsupported",
   );
 
   const missingRequired = requiredExtras
@@ -125,26 +121,25 @@ export const ReportBugDialog: FC<ReportBugDialogProps> = (
     .map((f) => f.name);
 
   const canSubmit =
-    summary.trim().length > 0 &&
-    !submitting &&
-    missingRequired.length === 0;
+    summary.trim().length > 0 && !submitting && missingRequired.length === 0;
 
   async function doSubmit() {
-    setSubmitting(true); setErr(null);
+    setSubmitting(true);
+    setErr(null);
     const chosen =
       pickedInstanceId === PAGE_LEVEL
         ? null
-        : context.renderings.find(
-            (r) => r.instanceId === pickedInstanceId
-          ) ?? null;
+        : (context.renderings.find((r) => r.instanceId === pickedInstanceId) ??
+          null);
     const scopedContext: ReportContext = {
       ...context,
       rendering: chosen,
-      datasource: datasourceFromRendering(chosen)
+      datasource: datasourceFromRendering(chosen),
     };
     try {
       const customFields = buildCustomFieldsPayload(
-        requiredExtras, dynamicValues
+        requiredExtras,
+        dynamicValues,
       );
       const result = await submit({
         summary: summary.trim(),
@@ -152,50 +147,38 @@ export const ReportBugDialog: FC<ReportBugDialogProps> = (
         context: scopedContext,
         attachmentCount: attach.length,
         customFields: Object.keys(customFields).length
-          ? customFields : undefined,
-        assignee: assignee
-          ? { accountId: assignee.accountId }
-          : null,
-        priority: priority
-          ? { id: priority.id }
-          : null
+          ? customFields
+          : undefined,
+        assignee: assignee ? { accountId: assignee.accountId } : null,
+        priority: priority ? { id: priority.id } : null,
       });
       for (const a of attach) {
-        try { await uploadAttachment(result.key, a.blob); }
-        catch {}
+        try {
+          await uploadAttachment(result.key, a.blob);
+        } catch {}
       }
       setCreated(result);
     } catch (e) {
       const msg =
-        (e as { userMessage?: string }).userMessage
-        ?? "Failed to submit";
+        (e as { userMessage?: string }).userMessage ?? "Failed to submit";
       setErr(msg);
     } finally {
       setSubmitting(false);
     }
   }
 
-  async function onCapture() {
-    if (!captureScreen) return;
-    const blob = await captureScreen();
-    if (!blob) return;
-    setAttach((prev) => [...prev, {
-      id: crypto.randomUUID(),
-      source: "capture",
-      blob,
-      name: `capture-${Date.now()}.png`
-    }]);
-  }
-
   function onUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    setAttach((prev) => [...prev, {
-      id: crypto.randomUUID(),
-      source: "upload",
-      blob: file,
-      name: file.name
-    }]);
+    setAttach((prev) => [
+      ...prev,
+      {
+        id: crypto.randomUUID(),
+        source: "upload",
+        blob: file,
+        name: file.name,
+      },
+    ]);
     e.target.value = "";
   }
 
@@ -204,47 +187,54 @@ export const ReportBugDialog: FC<ReportBugDialogProps> = (
       <div role="dialog" aria-label="Bug reported" className="p-4 space-y-3">
         <p className="text-sm">
           Bug reported as{" "}
-          <a href={created.url} target="_blank" rel="noreferrer"
-             className="text-primary underline font-medium">
+          <a
+            href={created.url}
+            target="_blank"
+            rel="noreferrer"
+            className="text-primary underline font-medium"
+          >
             {created.key}
           </a>
         </p>
-        <Button variant="outline" onClick={onClose}>Close</Button>
+        <Button variant="outline" onClick={onClose}>
+          Close
+        </Button>
       </div>
     );
   }
 
   return (
-    <div role="dialog" aria-label="Report bug"
-         className="p-4 flex flex-col gap-3">
+    <div
+      role="dialog"
+      aria-label="Report bug"
+      className="p-4 flex flex-col gap-3"
+    >
       {err && (
         <Alert variant="danger">
           <AlertDescription className="flex items-center justify-between">
             <span>{err}</span>
-            <Button variant="link" size="xs" onClick={doSubmit}>Retry</Button>
+            <Button variant="link" size="xs" onClick={doSubmit}>
+              Retry
+            </Button>
           </AlertDescription>
         </Alert>
       )}
       {context.renderings.length > 0 && (
         <div className="space-y-1.5">
-          <Label htmlFor="rendering">
-            Affected component on this page
-          </Label>
-          <select id="rendering"
+          <Label htmlFor="rendering">Affected component on this page</Label>
+          <select
+            id="rendering"
             value={pickedInstanceId}
-            onChange={(e) =>
-              setPickedInstanceId(e.target.value)}
-            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            onChange={(e) => setPickedInstanceId(e.target.value)}
+            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
             <option value={PAGE_LEVEL}>
               Page-level issue (no specific component)
             </option>
             {context.renderings.map((r) => (
-              <option key={r.instanceId}
-                      value={r.instanceId}>
+              <option key={r.instanceId} value={r.instanceId}>
                 {r.name || r.renderingId}
-                {r.placeholderKey
-                  ? ` — ${r.placeholderKey}`
-                  : ""}
+                {r.placeholderKey ? ` — ${r.placeholderKey}` : ""}
               </option>
             ))}
           </select>
@@ -252,17 +242,24 @@ export const ReportBugDialog: FC<ReportBugDialogProps> = (
       )}
       <div className="space-y-1.5">
         <Label htmlFor="summary">Bug summary</Label>
-        <Input id="summary" value={summary}
+        <Input
+          id="summary"
+          value={summary}
           placeholder="What's broken, in one sentence?"
-          onChange={(e) => setSummary(e.target.value)} />
+          onChange={(e) => setSummary(e.target.value)}
+        />
       </div>
       <div className="space-y-1.5">
         <Label htmlFor="desc">
           Description — what happened and how to reproduce
         </Label>
-        <Textarea id="desc" value={desc}
+        <Textarea
+          id="desc"
+          value={desc}
           placeholder="Steps to reproduce, expected result, actual result"
-          onChange={(e) => setDesc(e.target.value)} rows={5} />
+          onChange={(e) => setDesc(e.target.value)}
+          rows={5}
+        />
       </div>
 
       {searchUsers && (
@@ -288,9 +285,8 @@ export const ReportBugDialog: FC<ReportBugDialogProps> = (
       )}
       {metaError && (
         <p className="text-xs text-warning">
-          Could not load Jira field schema: {metaError}.
-          The ticket may fail to create if your project
-          has required custom fields.
+          Could not load Jira field schema: {metaError}. The ticket may fail to
+          create if your project has required custom fields.
         </p>
       )}
 
@@ -300,11 +296,14 @@ export const ReportBugDialog: FC<ReportBugDialogProps> = (
             Required by your Jira project
           </h4>
           {requiredExtras.map((f) => (
-            <DynamicFieldInput key={f.key} field={f}
+            <DynamicFieldInput
+              key={f.key}
+              field={f}
               value={dynamicValues[f.key]}
-              onChange={(v) => setDynamicValues(
-                (prev) => ({ ...prev, [f.key]: v })
-              )} />
+              onChange={(v) =>
+                setDynamicValues((prev) => ({ ...prev, [f.key]: v }))
+              }
+            />
           ))}
         </>
       )}
@@ -312,45 +311,47 @@ export const ReportBugDialog: FC<ReportBugDialogProps> = (
         <summary className="cursor-pointer">
           Technical additional information
         </summary>
-        <pre className="text-xs bg-muted p-2 rounded
-                        overflow-auto max-h-40">
-{JSON.stringify(context, null, 2)}
+        <pre
+          className="text-xs bg-muted p-2 rounded
+                        overflow-auto max-h-40"
+        >
+          {JSON.stringify(context, null, 2)}
         </pre>
       </details>
       <div className="flex gap-2 items-center">
-        {captureScreen && (
-          <Button variant="outline" size="sm" type="button" onClick={onCapture}>
-            Capture screen
-          </Button>
-        )}
         <Button variant="outline" size="sm" asChild>
           <label className="cursor-pointer">
             Upload image
-            <input type="file" className="hidden"
+            <input
+              type="file"
+              className="hidden"
               accept="image/png,image/jpeg,image/webp"
-              onChange={onUpload} />
+              onChange={onUpload}
+            />
           </label>
         </Button>
-        {!captureScreen && (
-          <span className="text-xs text-muted-foreground">
-            Screen capture is blocked in this embedded
-            view — use Upload with an OS screenshot.
-          </span>
-        )}
       </div>
       {attach.length > 0 && (
         <ul className="text-xs flex flex-col gap-1">
           {attach.map((a) => (
-            <li key={a.id}
-                className="flex items-center justify-between bg-muted px-2 py-1 rounded">
+            <li
+              key={a.id}
+              className="flex items-center justify-between bg-muted px-2 py-1 rounded"
+            >
               <span className="flex items-center gap-1.5">
-                {a.name} <Badge variant="default" className="text-[10px] px-1 py-0">{a.source}</Badge>
+                {a.name}{" "}
+                <Badge variant="default" className="text-[10px] px-1 py-0">
+                  {a.source}
+                </Badge>
               </span>
-              <Button variant="ghost" size="icon-xs"
+              <Button
+                variant="ghost"
+                size="icon-xs"
                 aria-label={`Remove ${a.name}`}
-                onClick={() => setAttach(
-                  (prev) => prev.filter((x) => x.id !== a.id)
-                )}>
+                onClick={() =>
+                  setAttach((prev) => prev.filter((x) => x.id !== a.id))
+                }
+              >
                 ✕
               </Button>
             </li>
@@ -358,9 +359,10 @@ export const ReportBugDialog: FC<ReportBugDialogProps> = (
         </ul>
       )}
       <div className="flex justify-end gap-2">
-        <Button variant="ghost" type="button" onClick={onClose}>Cancel</Button>
-        <Button type="button" onClick={doSubmit}
-          disabled={!canSubmit}>
+        <Button variant="ghost" type="button" onClick={onClose}>
+          Cancel
+        </Button>
+        <Button type="button" onClick={doSubmit} disabled={!canSubmit}>
           {submitting ? "Submitting…" : "Submit"}
         </Button>
       </div>
@@ -377,9 +379,15 @@ export const ReportBugDialog: FC<ReportBugDialogProps> = (
 // meta field matching these should NOT be rendered as a
 // dynamic input (we'd collide with ourselves).
 const BUILTIN_FIELD_KEYS = new Set([
-  "summary", "description", "labels", "project",
-  "issuetype", "assignee", "reporter", "attachment",
-  "priority"
+  "summary",
+  "description",
+  "labels",
+  "project",
+  "issuetype",
+  "assignee",
+  "reporter",
+  "attachment",
+  "priority",
 ]);
 
 function hasDynamicValue(v: unknown): boolean {
@@ -394,7 +402,7 @@ function hasDynamicValue(v: unknown): boolean {
 
 function buildCustomFieldsPayload(
   fields: NormalizedField[],
-  values: Record<string, unknown>
+  values: Record<string, unknown>,
 ): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   for (const f of fields) {
@@ -418,15 +426,16 @@ function buildCustomFieldsPayload(
         out[f.key] = { id: String(raw) };
         break;
       case "array-option":
-        out[f.key] = (raw as string[]).map(
-          (id) => ({ id })
-        );
+        out[f.key] = (raw as string[]).map((id) => ({ id }));
         break;
       case "array-string":
-        out[f.key] = typeof raw === "string"
-          ? raw.split(",").map((s) => s.trim())
-              .filter(Boolean)
-          : raw;
+        out[f.key] =
+          typeof raw === "string"
+            ? raw
+                .split(",")
+                .map((s) => s.trim())
+                .filter(Boolean)
+            : raw;
         break;
       default:
         // unsupported / user / date — pass through as-is
@@ -445,24 +454,26 @@ type DynamicFieldInputProps = {
 const selectCls =
   "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
-const DynamicFieldInput: FC<DynamicFieldInputProps> = (
-  { field, value, onChange }
-) => {
+const DynamicFieldInput: FC<DynamicFieldInputProps> = ({
+  field,
+  value,
+  onChange,
+}) => {
   const label = (
     <Label>
       {field.name}
-      {field.required && (
-        <span className="text-destructive ml-1">*</span>
-      )}
+      {field.required && <span className="text-destructive ml-1">*</span>}
     </Label>
   );
   if (field.type === "paragraph") {
     return (
       <div className="space-y-1.5">
         {label}
-        <Textarea rows={3}
+        <Textarea
+          rows={3}
           value={(value as string) ?? ""}
-          onChange={(e) => onChange(e.target.value)} />
+          onChange={(e) => onChange(e.target.value)}
+        />
       </div>
     );
   }
@@ -470,9 +481,11 @@ const DynamicFieldInput: FC<DynamicFieldInputProps> = (
     return (
       <div className="space-y-1.5">
         {label}
-        <Input type="text"
+        <Input
+          type="text"
           value={(value as string) ?? ""}
-          onChange={(e) => onChange(e.target.value)} />
+          onChange={(e) => onChange(e.target.value)}
+        />
       </div>
     );
   }
@@ -480,9 +493,11 @@ const DynamicFieldInput: FC<DynamicFieldInputProps> = (
     return (
       <div className="space-y-1.5">
         {label}
-        <Input type="number"
+        <Input
+          type="number"
           value={(value as string) ?? ""}
-          onChange={(e) => onChange(e.target.value)} />
+          onChange={(e) => onChange(e.target.value)}
+        />
       </div>
     );
   }
@@ -490,9 +505,11 @@ const DynamicFieldInput: FC<DynamicFieldInputProps> = (
     return (
       <div className="space-y-1.5">
         {label}
-        <select className={selectCls}
+        <select
+          className={selectCls}
           value={(value as string) ?? ""}
-          onChange={(e) => onChange(e.target.value)}>
+          onChange={(e) => onChange(e.target.value)}
+        >
           <option value="">— Select —</option>
           {(field.allowedValues ?? []).map((v) => (
             <option key={v.id ?? v.name} value={v.id ?? ""}>
@@ -508,14 +525,17 @@ const DynamicFieldInput: FC<DynamicFieldInputProps> = (
     return (
       <div className="space-y-1.5">
         {label}
-        <select multiple className={selectCls + " min-h-20"}
+        <select
+          multiple
+          className={selectCls + " min-h-20"}
           value={current}
           onChange={(e) => {
-            const picked = Array.from(
-              e.target.selectedOptions
-            ).map((o) => o.value);
+            const picked = Array.from(e.target.selectedOptions).map(
+              (o) => o.value,
+            );
             onChange(picked);
-          }}>
+          }}
+        >
           {(field.allowedValues ?? []).map((v) => (
             <option key={v.id ?? v.name} value={v.id ?? ""}>
               {v.name ?? v.value ?? v.id}
@@ -529,19 +549,20 @@ const DynamicFieldInput: FC<DynamicFieldInputProps> = (
     return (
       <div className="space-y-1.5">
         {label}
-        <Input type="text"
+        <Input
+          type="text"
           placeholder="comma-separated"
           value={(value as string) ?? ""}
-          onChange={(e) => onChange(e.target.value)} />
+          onChange={(e) => onChange(e.target.value)}
+        />
       </div>
     );
   }
   return (
     <p className="text-xs text-muted-foreground">
-      {field.name}: field type not supported yet
-      ({field.schemaType}
-      {field.schemaItems ? ` of ${field.schemaItems}` : ""}).
-      Contact your Jira admin.
+      {field.name}: field type not supported yet ({field.schemaType}
+      {field.schemaItems ? ` of ${field.schemaItems}` : ""}). Contact your Jira
+      admin.
     </p>
   );
 };
